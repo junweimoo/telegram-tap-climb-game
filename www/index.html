@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="theme-color" content="#0f172a" />
+    <title>Climb Tap — Timberman-style mini game</title>
+    <link rel="stylesheet" href="script.css" />
+    <!-- <script src="https://telegram.org/js/telegram-web-app.js"></script> -->
+</head>
+<body>
+    <!-- HUD -->
+    <header id="hud" aria-live="polite">
+      <div class="time">
+        <div class="bar" aria-label="Time remaining">
+          <i id="timeFill" style="--fill: 1"></i>
+        </div>
+      </div>
+      <div class="score">Score: <b id="scoreEl">0</b></div>
+    </header>
+
+    <!-- Game Canvas -->
+    <canvas id="game" width="360" height="640" aria-label="Game canvas"></canvas>
+
+    <!-- Overlay (Start / Game Over) -->
+    <div id="overlay" class="show" role="dialog" aria-modal="true" style="touch-action: manipulation;">
+      <section class="card">
+        <h1 class="title">Climb Tap</h1>
+        <p class="subtitle">Tap Left/Right to move that hand. Avoid overhangs on the active segment. Don’t run out of time.</p>
+        <div class="final" id="finalWrap" hidden>
+          <p id="finalMsg">Game Over</p>
+          <p><small>Score: <b id="finalScore">0</b> • Best: <b id="bestScore">0</b></small></p>
+        </div>
+        <div class="actions">
+          <button id="startBtn" class="primary">Tap to start</button>
+          <button id="restartBtn" class="primary" hidden>Play again</button>
+      </div>
+        <p class="hint">Keyboard: A/← and D/→ • Space/Enter to start</p>
+      </section>
+  </div>
+
+    <!-- Bottom Controls -->
+    <nav class="controls" aria-label="Controls">
+      <button id="leftBtn" class="glass" aria-label="Left hand" data-side="left"></button>
+      <button id="rightBtn" class="glass" aria-label="Right hand" data-side="right"></button>
+    </nav>
+
+    <script src="climber.js" defer></script>
+    <script src="game.js" defer></script>
+</body>
+</html>
+
