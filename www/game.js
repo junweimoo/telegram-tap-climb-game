@@ -181,10 +181,23 @@
   let refAlpha = 0.5;
   let refAnchor = 'hips'; // 'hips' | 'shoulders' | 'center'
 
+  // url params
+  let userId = 0;
+  let chatId = 0;
+  let threadId = 0;
+  let messageId = 0;
+  let apiBaseUrl = "";
+
   // Load optional reference image from query string ?ref=<url> and ?debug=1
   (function initDebugRef() {
     try {
       const qs = new URLSearchParams(location.search);
+
+      userId = qs.get("user_id")
+      chatId = qs.get("chat_id")
+      messageId = qs.get("message_id")
+      apiBaseUrl = qs.get("api_base")
+
       const refUrl = qs.get('ref');
       const debug = qs.get('debug');
       if (debug === '1' || debug === 'true') {
@@ -799,12 +812,44 @@
   // ------------------------------
   // Future Mini App submission stub
   // ------------------------------
+  async function postScore(apiBaseUrl, userId, chatId, messageId, inlineMessageId, score) {
+    const url = `${apiBaseUrl}/score`;
+    const body = {
+      user_id: userId,
+      score: score,
+      chat_id: chatId,
+      message_id: messageId,
+      inline_message_id: inlineMessageId,
+    };
+
+    Object.keys(body).forEach(key => {
+      if (body[key] == null) delete body[key];
+    });
+
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(body)
+    });
+
+    if (!res.ok) {
+      throw new Error(`Score API error: ${res.status} ${await res.text()}`);
+    }
+    // Returns { ok: bool, telegram: ... }
+    return await res.json();
+  }
+
   function submitScore(score, contestId) {
     // no-op for now
     // later: POST { initData, contestId, score } to backend
     // eslint-disable-next-line no-console
+
+    postScore(apiBaseUrl, userId, chatId, messageId, null, score)
     console.log('submitScore()', { score, contestId });
   }
+  
   window.ClimbTap = { submitScore };
 })();
 
