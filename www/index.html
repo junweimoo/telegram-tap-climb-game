@@ -1,53 +1,4771 @@
-<!doctype html>
+<!DOCTYPE html>
+<!-- saved from url=(0014)about:internet -->
 <html lang="en">
-<head>
-  <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="theme-color" content="#0f172a" />
-    <title>Climb Tap — Timberman-style mini game</title>
-    <link rel="stylesheet" href="script.css" />
-    <!-- <script src="https://telegram.org/js/telegram-web-app.js"></script> -->
-</head>
-<body>
-    <!-- HUD -->
-    <header id="hud" aria-live="polite">
-      <div class="time">
-        <div class="bar" aria-label="Time remaining">
-          <i id="timeFill" style="--fill: 1"></i>
-        </div>
-      </div>
-      <div class="score">Score: <b id="scoreEl">0</b></div>
-    </header>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
 
-    <!-- Game Canvas -->
-    <canvas id="game" width="360" height="640" aria-label="Game canvas"></canvas>
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta name="color-scheme" content="light dark" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src &#39;self&#39; https://unpkg.com; img-src &#39;self&#39; data: blob:; style-src &#39;self&#39; &#39;unsafe-inline&#39;; script-src &#39;self&#39; &#39;unsafe-inline&#39; https://unpkg.com; connect-src &#39;self&#39; https://unpkg.com; media-src &#39;self&#39; data: blob:; font-src &#39;self&#39;;"
+    />
+    <title>BetasprayGame2.0</title>
+    <style>
+      html,
+      body,
+      #app {
+        height: 100%;
+        margin: 0;
+      }
+      body {
+        background: #0a0f1a;
+      }
+      #mobile-controls {
+        position: fixed;
+        left: 50%;
+        bottom: calc(25px + env(safe-area-inset-bottom)); /* moved up 3px */
+        transform: translateX(-50%);
+        display: none; /* default hidden; scenes toggle */
+        grid-template-columns: auto auto;
+        /* Space far enough to clear the central rock wall while staying responsive */
+        gap: clamp(220px, 42vw, 320px);
+        pointer-events: none;
+      }
+      /* Circular rock buttons for mobile controls */
+      .rockbtn {
+        pointer-events: auto;
+        width: 99px; /* +15% */
+        height: 99px; /* +15% */
+        border-radius: 50%;
+        border: 2px solid rgba(0, 0, 0, 0.25);
+        background: radial-gradient(
+            120px 120px at 40% 35%,
+            #7b746c 0%,
+            #6e6860 40%,
+            #5f5a53 70%,
+            #4f4a45 100%
+          ),
+          radial-gradient(
+            6px 6px at 20% 30%,
+            rgba(0, 0, 0, 0.22) 20%,
+            rgba(0, 0, 0, 0) 21%
+          ),
+          radial-gradient(
+            5px 5px at 70% 60%,
+            rgba(255, 255, 255, 0.08) 20%,
+            rgba(255, 255, 255, 0) 21%
+          ),
+          radial-gradient(
+            4px 4px at 55% 25%,
+            rgba(0, 0, 0, 0.18) 20%,
+            rgba(0, 0, 0, 0) 21%
+          ),
+          radial-gradient(
+            4px 4px at 30% 70%,
+            rgba(0, 0, 0, 0.16) 20%,
+            rgba(0, 0, 0, 0) 21%
+          );
+        color: #fff;
+        font: 800 34px system-ui, -apple-system, Segoe UI, Roboto, Helvetica,
+          Arial;
+        text-shadow: 0 2px 0 rgba(0, 0, 0, 0.25);
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35),
+          inset 0 2px 2px rgba(255, 255, 255, 0.08),
+          inset 0 -10px 14px rgba(0, 0, 0, 0.25);
+        display: grid;
+        place-items: center;
+        transition: transform 120ms ease, filter 120ms ease;
+      }
+      .rockbtn:active {
+        transform: scale(0.96);
+        filter: brightness(0.95);
+      }
+      .rockbtn .arrow {
+        user-select: none;
+        font-size: 0.8em; /* 20% smaller than button font size */
+        line-height: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <canvas
+        width="2520"
+        height="1324"
+        tabindex="0"
+        style="
+          outline: none;
+          cursor: default;
+          width: 100%;
+          height: 100%;
+          image-rendering: pixelated;
+        "
+      ></canvas>
+    </div>
+    <div
+      id="mobile-controls"
+      aria-hidden="false"
+      role="group"
+      aria-label="Climb controls"
+      style="display: none"
+    >
+      <button
+        id="btn-left"
+        class="rockbtn"
+        aria-label="Move left"
+        style="margin-right: 3px"
+      >
+        <span class="arrow">←</span>
+      </button>
+      <button
+        id="btn-right"
+        class="rockbtn"
+        aria-label="Move right"
+        style="margin-left: 3px"
+      >
+        <span class="arrow">→</span>
+      </button>
+    </div>
 
-    <!-- Overlay (Start / Game Over) -->
-    <div id="overlay" class="show" role="dialog" aria-modal="true" style="touch-action: manipulation;">
-      <section class="card">
-        <h1 class="title">Climb Tap</h1>
-        <p class="subtitle">Tap Left/Right to move that hand. Avoid overhangs on the active segment. Don’t run out of time.</p>
-        <div class="final" id="finalWrap" hidden>
-          <p id="finalMsg">Game Over</p>
-          <p><small>Score: <b id="finalScore">0</b> • Best: <b id="bestScore">0</b></small></p>
-        </div>
-        <div class="actions">
-          <button id="startBtn" class="primary">Tap to start</button>
-          <button id="restartBtn" class="primary" hidden>Play again</button>
-      </div>
-        <p class="hint">Keyboard: A/← and D/→ • Space/Enter to start</p>
-      </section>
-  </div>
+    <script type="module">
+      import kaboom from "https://unpkg.com/kaboom/dist/kaboom.mjs";
 
-    <!-- Bottom Controls -->
-    <nav class="controls" aria-label="Controls">
-      <button id="leftBtn" class="glass" aria-label="Left hand" data-side="left"></button>
-      <button id="rightBtn" class="glass" aria-label="Right hand" data-side="right"></button>
-    </nav>
+      const qs = new URLSearchParams(location.search);
+      let userId = qs.get("user_id");
+      let userName = qs.get("user_name");
+      let chatId = qs.get("chat_id");
+      let messageId = qs.get("message_id");
+      let apiBaseUrl = qs.get("api_base");
+      let inlineMessageId = qs.get("inline_message_id");
 
-    <script src="climber.js" defer></script>
-    <script src="game.js" defer></script>
-</body>
+      // ------------------------------
+      // Score posting
+      // ------------------------------
+
+      async function postScore(score) {
+        const url = `${apiBaseUrl}/score`;
+        const body = {
+          user_id: userId,
+          user_name: userName,
+          score: score,
+          chat_id: chatId,
+          message_id: messageId,
+          inline_message_id: inlineMessageId,
+        };
+
+        Object.keys(body).forEach((key) => {
+          if (body[key] == null) delete body[key];
+        });
+
+        const res = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(body),
+        });
+
+        if (!res.ok) {
+          throw new Error(`Score API error: ${res.status} ${await res.text()}`);
+        }
+        return await res.json();
+      }
+
+      // ------------------------------
+      // Config and utilities
+      // ------------------------------
+      const GAME_CONFIG = {
+        internalWidth: 540,
+        internalHeight: 960,
+        physicsTimestepMs: 16.6667,
+        maxDtSeconds: 0.2,
+        inputLockMs: 120,
+        uiScale: 1.25,
+        timeBar: {
+          maxSeconds: 6,
+          refillOnStepSeconds: 0.3,
+          dangerThreshold: 0.15,
+        },
+        wall: { width: 200, segmentHeight: 40 },
+        obstacles: {
+          startChance: 0.55,
+          endChance: 0.92,
+          endScore: 80,
+          maxSameSideInRow: 2,
+          dualHoldChance: 0.18,
+        },
+        difficulty: { rampSlope: 0.008, rampMax: 0.9, maxDrainMultiplier: 2.0 },
+      };
+
+      function remapClamped(value, inMin, inMax, outMin, outMax) {
+        if (inMax === inMin) return outMin;
+        const t = Math.min(1, Math.max(0, (value - inMin) / (inMax - inMin)));
+        return outMin + t * (outMax - outMin);
+      }
+
+      // ------------------------------
+      // Kaboom init
+      // ------------------------------
+      function initKaboom() {
+        const k = kaboom({
+          width: GAME_CONFIG.internalWidth,
+          height: GAME_CONFIG.internalHeight,
+          background: [196, 244, 248],
+          global: false,
+          touchToMouse: true,
+          debug: true,
+          stretch: true,
+          letterbox: true,
+          crisp: true,
+          pixelDensity: Math.max(1, Math.floor(window.devicePixelRatio || 1)),
+          root: document.querySelector("#app"),
+        });
+        return { k };
+      }
+
+      // ------------------------------
+      // Theme persistence (day/night)
+      // ------------------------------
+      const THEME_KEY = "climbtap_theme";
+
+      function loadTheme() {
+        try {
+          const v = localStorage.getItem(THEME_KEY);
+          if (v === "day" || v === "night") return v;
+        } catch {}
+        return "day";
+      }
+
+      function saveTheme(t) {
+        try {
+          localStorage.setItem(THEME_KEY, t);
+        } catch {}
+        window.__theme = t;
+      }
+
+      // ------------------------------
+      // Best score persistence
+      // ------------------------------
+      function loadBest() {
+        const v = localStorage.getItem("climbtap_best");
+        const n = v ? Number(v) : 0;
+        return Number.isFinite(n) ? n : 0;
+      }
+
+      function saveBest(best) {
+        localStorage.setItem("climbtap_best", String(best));
+      }
+
+      // ------------------------------
+      // Input + mobile controls
+      // ------------------------------
+      function showMobileControls() {
+        const el = document.getElementById("mobile-controls");
+        if (!el) return;
+        el.style.display = "grid";
+      }
+
+      function hideMobileControls() {
+        const el = document.getElementById("mobile-controls");
+        if (!el) return;
+        el.style.display = "none";
+      }
+
+      function setupInput(k, cbs) {
+        const onLeft = () => cbs.onMove("left");
+        const onRight = () => cbs.onMove("right");
+        const onStart = () => cbs.onStart();
+        const ctrls = [];
+        ctrls.push(k.onKeyPress("a", onLeft));
+        ctrls.push(k.onKeyPress("left", onLeft));
+        ctrls.push(k.onKeyPress("d", onRight));
+        ctrls.push(k.onKeyPress("right", onRight));
+        ctrls.push(k.onKeyPress("space", onStart));
+        ctrls.push(k.onKeyPress("enter", onStart));
+        const btnLeft = document.getElementById("btn-left");
+        const btnRight = document.getElementById("btn-right");
+        const add = (el, fn) => {
+          if (!el) return () => {};
+          const handler = (e) => {
+            e.preventDefault();
+            fn();
+          };
+          el.addEventListener("pointerdown", handler);
+          return () => el.removeEventListener("pointerdown", handler);
+        };
+        const domUnsubLeft = add(btnLeft, onLeft);
+        const domUnsubRight = add(btnRight, onRight);
+        return () => {
+          ctrls.forEach((c) => c.cancel());
+          domUnsubLeft();
+          domUnsubRight();
+        };
+      }
+
+      // ------------------------------
+      // Background (sky, clouds, trees, ground)
+      // ------------------------------
+      function spawnBackground(k, viewSize, opts) {
+        const clouds = [];
+        const trees = [];
+        const shrubs = [];
+        const rand = (min, max) => Math.random() * (max - min) + min;
+
+        let lastTheme = window.__theme ?? loadTheme();
+        const daySky = k.rgb(196, 235, 250);
+        const nightSky = k.rgb(18, 26, 42);
+        const sky = k.add([
+          k.rect(viewSize.x, viewSize.y),
+          k.pos(0, 0),
+          k.anchor("topleft"),
+          k.z(-50),
+          k.color(lastTheme === "night" ? nightSky : daySky),
+        ]);
+        const sun = k.add([
+          k.circle(Math.max(14, viewSize.x * 0.04)),
+          k.pos(
+            Math.max(48, viewSize.x * 0.08),
+            Math.max(48, viewSize.y * 0.1)
+          ),
+          k.anchor("center"),
+          k.color(255, 210, 60),
+          k.z(-30),
+        ]);
+        const moon = k.add([
+          k.circle(Math.max(12, viewSize.x * 0.035)),
+          k.pos(
+            Math.max(viewSize.x - 64, viewSize.x * 0.92),
+            Math.max(48, viewSize.y * 0.14)
+          ),
+          k.anchor("center"),
+          k.color(220, 230, 255),
+          k.z(-30),
+        ]);
+        const crater = (ox, oy, r) =>
+          moon.add([
+            k.circle(r),
+            k.pos(ox, oy),
+            k.color(200, 210, 240),
+            k.opacity(0.6),
+          ]);
+        crater(-6, -4, 3);
+        crater(4, 2, 2.4);
+        crater(2, -6, 2.2);
+        sun.hidden = lastTheme === "night";
+        moon.hidden = lastTheme !== "night";
+
+        const providedHorizon =
+          typeof opts?.horizonLevel === "number" ? opts.horizonLevel : null;
+        const horizonHeight = providedHorizon ?? viewSize.y * 0.88 - 8;
+        const treeBaseY = horizonHeight + 8;
+
+        function spawnCloud(startOffLeft = false) {
+          const width = rand(viewSize.x * 0.18, viewSize.x * 0.34);
+          const x = startOffLeft ? -10 - width / 2 : rand(0, viewSize.x);
+          const c = k.add([
+            k.rect(width, width * 0.3, { radius: width * 0.15 }),
+            k.pos(x, rand(18, viewSize.y * 0.6)),
+            k.color(255, 255, 255),
+            k.opacity(0.32),
+            { z: -20, speed: rand(12, 28) },
+          ]);
+          clouds.push(c);
+        }
+        const initialClouds = Math.max(
+          6,
+          Math.round(12 * Math.max(1, viewSize.x / 540))
+        );
+        for (let i = 0; i < initialClouds; i++) spawnCloud(false);
+        const maxClouds = Math.max(
+          initialClouds,
+          Math.round(initialClouds * 1.5)
+        );
+        let cloudSpawnTimer = 0.0;
+
+        const ground = k.add([
+          k.rect(viewSize.x, Math.max(10, viewSize.y - treeBaseY + 8), {
+            radius: 6,
+          }),
+          k.pos(0, viewSize.y),
+          k.anchor("botleft"),
+          k.color(74, 52, 43),
+          { z: -2 },
+        ]);
+        for (let i = 0; i < 6; i++) {
+          const w = rand(viewSize.x * 0.12, viewSize.x * 0.3);
+          const h = rand(8, 16);
+          k.add([
+            k.rect(w, h, { radius: 8 }),
+            k.pos(rand(10, viewSize.x - 10), viewSize.y - rand(6, 20)),
+            k.anchor("bot"),
+            k.color(56, 40, 34),
+            k.opacity(0.7),
+            { z: -1.9 },
+          ]);
+        }
+
+        const baseTreeCount = Math.round(8 * 0.7);
+        const densityMul = Math.max(0, Math.min(1, opts?.treeDensityMul ?? 1));
+        const treeCount = Math.max(0, Math.round(baseTreeCount * densityMul));
+        const clip = opts?.treeClip;
+        const minX = clip ? clip.centerX - clip.width / 2 : 0;
+        const maxX = clip ? clip.centerX + clip.width / 2 : viewSize.x;
+
+        const addTree = (x, scale, variant, heightMul = 1) => {
+          const trunkMul = Math.max(0.1, opts?.trunkHeightMul ?? 1);
+          const trunk = k.add([
+            k.rect(5 * scale, 18 * scale * heightMul * trunkMul, { radius: 2 }),
+            k.pos(x, treeBaseY),
+            k.anchor("bot"),
+            k.color(84, 60, 44),
+            { z: -1.5 },
+          ]);
+          trees.push(trunk);
+          const type = variant ?? (Math.random() < 0.6 ? "round" : "cone");
+          const baseTrunkH = 18 * scale * heightMul * trunkMul;
+          if (type === "round") {
+            const blobCount = 3 + Math.floor(Math.random() * 3);
+            const baseR = 10 * scale * (0.9 + 0.5 * (heightMul - 1));
+            for (let i = 0; i < blobCount; i++) {
+              const r = baseR * (0.8 + Math.random() * 0.5);
+              const ox = (Math.random() * 12 - 6) * scale;
+              const oy = baseTrunkH + (Math.random() * 6 - 8) * scale;
+              const blob = k.add([
+                k.circle(r),
+                k.pos(x + ox, treeBaseY - oy),
+                k.anchor("center"),
+                k.color(60 + i * 6, 130 + i * 4, 90),
+                { z: -1.45 },
+              ]);
+              trees.push(blob);
+            }
+            const hl = k.add([
+              k.circle(Math.max(1, baseR * 0.5)),
+              k.pos(x + 6 * scale, treeBaseY - (baseTrunkH + 6 * scale)),
+              k.anchor("center"),
+              k.color(255, 255, 255),
+              k.opacity(0.06),
+              { z: -1.44 },
+            ]);
+            trees.push(hl);
+          } else {
+            const stripes = 5;
+            for (let sIdx = 0; sIdx < stripes; sIdx++) {
+              const frac = (sIdx + 1) / stripes;
+              const wobble = Math.sin(frac * Math.PI) * 2 * scale;
+              const w = 20 * scale * (0.4 + frac * 0.75);
+              const h = 5 * scale * heightMul;
+              const y = treeBaseY - baseTrunkH - sIdx * h + 2 * scale;
+              const leaf = k.add([
+                k.rect(w, h, { radius: 3 }),
+                k.pos(x + wobble * (Math.random() - 0.5), y),
+                k.anchor("center"),
+                k.color(44 + sIdx * 6, 118 + sIdx * 4, 82),
+                { z: -1.45 },
+              ]);
+              trees.push(leaf);
+            }
+          }
+        };
+        function sampleXsSpaced(min, max, count, jitterFrac = 0.3) {
+          const xs = [];
+          const span = Math.max(1, max - min);
+          const step = span / count;
+          for (let i = 0; i < count; i++) {
+            const center = min + (i + 0.5) * step;
+            const jitter = (Math.random() * 2 - 1) * step * jitterFrac;
+            const x = Math.min(max, Math.max(min, center + jitter));
+            xs.push(x);
+          }
+          return xs;
+        }
+        const tScale = Math.max(0.5, opts?.treeScale ?? 1);
+        for (const x of sampleXsSpaced(minX + 10, maxX - 10, treeCount, 0.35)) {
+          const scale = rand(0.9, 1.3) * tScale;
+          const heightMul = 1 + (Math.random() * 0.5 - 0.25);
+          addTree(x, scale, Math.random() < 0.65 ? "round" : "cone", heightMul);
+        }
+        const leftRange = { min: 10, max: Math.max(20, minX - 10) };
+        const rightRange = {
+          min: Math.min(viewSize.x - 20, maxX + 10),
+          max: viewSize.x - 10,
+        };
+        const addCluster = (range, count) => {
+          if (range.max - range.min < 10) return;
+          const c = Math.max(0, Math.round(count * densityMul * 0.7));
+          for (const x of sampleXsSpaced(range.min, range.max, c, 0.25)) {
+            const scale = rand(0.9, 1.5) * tScale;
+            const heightMul = 1 + (Math.random() * 0.5 - 0.25);
+            addTree(
+              x,
+              scale,
+              Math.random() < 0.6 ? "round" : "cone",
+              heightMul
+            );
+            if (Math.random() < 0.7) {
+              const w = rand(12, 26) * (scale * 0.6),
+                h = rand(6, 10) * (scale * 0.5);
+              const shrub = k.add([
+                k.rect(w, h, { radius: 4 }),
+                k.pos(x + rand(-8, 8), treeBaseY - 2),
+                k.anchor("bot"),
+                k.color(66, 120, 72),
+                k.opacity(0.9),
+                { z: -1.48 },
+              ]);
+              shrubs.push(shrub);
+              if (Math.random() < 0.5) {
+                const sprig = k.add([
+                  k.rect(w * 0.6, h * 0.7, { radius: 3 }),
+                  k.pos(x + rand(-10, 10), treeBaseY - h * 0.6),
+                  k.anchor("bot"),
+                  k.color(58, 100, 64),
+                  { z: -1.47 },
+                ]);
+                shrubs.push(sprig);
+              }
+            }
+          }
+        };
+        addCluster(leftRange, 8);
+        addCluster(rightRange, 8);
+
+        k.onUpdate(() => {
+          const theme = window.__theme ?? loadTheme();
+          if (theme !== lastTheme) {
+            lastTheme = theme;
+            const isNight = theme === "night";
+            sky.color = isNight ? nightSky : daySky;
+            ground.color = isNight ? k.rgb(54, 42, 38) : k.rgb(74, 52, 43);
+            sun.hidden = isNight;
+            moon.hidden = !isNight;
+            for (const c of clouds) c.opacity = isNight ? 0.22 : 0.32;
+            const treeOpacity = isNight ? 0.82 : 1.0;
+            for (const t of trees) t.opacity = treeOpacity;
+            for (const s of shrubs) s.opacity = isNight ? 0.85 : 0.95;
+          }
+          cloudSpawnTimer -= k.dt();
+          if (cloudSpawnTimer <= 0 && clouds.length < maxClouds) {
+            spawnCloud(true);
+            cloudSpawnTimer = rand(0.8, 1.6);
+          }
+          for (const c of clouds) {
+            const s = c.speed ?? 10;
+            c.move(s, 0);
+            const pos = c.pos;
+            const width = c.width;
+            if (pos.x - width / 2 > viewSize.x + 10) {
+              c.pos.x = -10 - width / 2;
+              c.pos.y = rand(20, viewSize.y * 0.6);
+            }
+          }
+        });
+
+        return { sky, sun, moon, clouds, trees, shrubs, ground };
+      }
+
+      // ------------------------------
+      // Mountains (parallaxed offscreen canvases)
+      // ------------------------------
+      function addMountains(k, config) {
+        function rng(seed) {
+          const str = String(seed ?? 0);
+          let h1 = 1779033703,
+            h2 = 3144134277,
+            h3 = 1013904242,
+            h4 = 2773480762;
+          for (let i = 0; i < str.length; i++) {
+            const t = str.charCodeAt(i);
+            h1 = h2 ^ Math.imul(h1 ^ t, 597399067);
+            h2 = h3 ^ Math.imul(h2 ^ t, 2869860233);
+            h3 = h4 ^ Math.imul(h3 ^ t, 951274213);
+            h4 = h1 ^ Math.imul(h4 ^ t, 2716044179);
+          }
+          h1 = Math.imul(h3 ^ (h1 >>> 18), 597399067);
+          h2 = Math.imul(h4 ^ (h2 >>> 22), 2869860233);
+          h3 = Math.imul(h1 ^ (h3 >>> 17), 951274213);
+          h4 = Math.imul(h2 ^ (h4 >>> 19), 2716044179);
+          let a = (h1 ^ h2 ^ h3 ^ h4) >>> 0;
+          let b = (h2 ^ h1) >>> 0;
+          let c = (h3 ^ h1) >>> 0;
+          let d = (h4 ^ h1) >>> 0;
+          return function random() {
+            a >>>= 0;
+            b >>>= 0;
+            c >>>= 0;
+            d >>>= 0;
+            let t = (a + b) | 0;
+            a = b ^ (b >>> 9);
+            b = (c + (c << 3)) | 0;
+            c = (c << 21) | (c >>> 11);
+            d = (d + 1) | 0;
+            t = (t + d) | 0;
+            c = (c + t) | 0;
+            return (t >>> 0) / 4294967296;
+          };
+        }
+        function clamp(n, min, max) {
+          return Math.max(min, Math.min(max, n));
+        }
+        function hsl(h, s, l, a = 1) {
+          return `hsla(${Math.round(h)}, ${Math.round(s)}%, ${Math.round(
+            l
+          )}%, ${a})`;
+        }
+        function jitterLightness(layer, baseL, random) {
+          const j = 5 + random() * 5;
+          let l = baseL + (random() * 2 - 1) * j;
+          if (layer === "tall") l -= 6;
+          else if (layer === "medium") l -= 2;
+          else l += 2;
+          return clamp(l, 10, 90);
+        }
+        function layerZ(layer) {
+          return layer === "tall" ? -15 : layer === "medium" ? -12 : -9;
+        }
+        function intersectAtY(a, b, y) {
+          const dy = b.y - a.y;
+          if (dy === 0) return null;
+          const t = (y - a.y) / dy;
+          if (t < 0 || t > 1) return null;
+          return { x: a.x + (b.x - a.x) * t, y };
+        }
+        function makeMountainPolygon(params) {
+          const {
+            xCenter,
+            baseY,
+            width,
+            height,
+            peaks,
+            peakDelta = 0.15,
+            random,
+          } = params;
+          const half = width / 2;
+          const leftX = xCenter - half;
+          const rightX = xCenter + half;
+          const topY = baseY - height;
+          const ridge = [];
+          if (peaks === 1) {
+            const lShoulderX = leftX + width * (0.28 + random() * 0.08);
+            const rShoulderX = rightX - width * (0.28 + random() * 0.08);
+            const apexX = xCenter + (random() * 2 - 1) * width * 0.06;
+            const lY = baseY - height * (0.7 + random() * 0.12);
+            const rY = baseY - height * (0.68 + random() * 0.12);
+            ridge.push(
+              { x: lShoulderX, y: lY },
+              { x: apexX, y: topY },
+              { x: rShoulderX, y: rY }
+            );
+          } else {
+            const leftPeakX = xCenter - width * (0.18 + random() * 0.08);
+            const rightPeakX = xCenter + width * (0.18 + random() * 0.08);
+            const d = clamp(peakDelta, 0.05, 0.35);
+            const leftPeakH = height * (1 - d * (random() < 0.5 ? 1 : 0.5));
+            const rightPeakH = height * (1 - d * (random() < 0.5 ? 0.5 : 1));
+            const left = { x: leftPeakX, y: baseY - leftPeakH };
+            const right = { x: rightPeakX, y: baseY - rightPeakH };
+            const saddleX = xCenter + (random() * 2 - 1) * width * 0.06;
+            const saddleY = baseY - height * (0.78 + random() * 0.08);
+            const lShoulderX = leftX + width * (0.22 + random() * 0.07);
+            const rShoulderX = rightX - width * (0.22 + random() * 0.07);
+            const lShoulder = {
+              x: lShoulderX,
+              y: baseY - height * (0.68 + random() * 0.1),
+            };
+            const rShoulder = {
+              x: rShoulderX,
+              y: baseY - height * (0.66 + random() * 0.1),
+            };
+            ridge.push(
+              lShoulder,
+              left,
+              { x: saddleX, y: saddleY },
+              right,
+              rShoulder
+            );
+          }
+          ridge.sort((a, b) => a.x - b.x);
+          const outline = [
+            { x: leftX, y: baseY },
+            ...ridge,
+            { x: rightX, y: baseY },
+          ];
+          const apexY = ridge.reduce((m, p) => Math.min(m, p.y), baseY);
+          return { outline, ridge, width, height, apexY };
+        }
+        function drawMountain(ctx, poly, fillStyle) {
+          const pts = poly.outline;
+          if (!pts || pts.length < 2) return;
+          ctx.beginPath();
+          ctx.moveTo(pts[0].x, pts[0].y);
+          for (let i = 1; i < pts.length; i++) {
+            const p = pts[i];
+            ctx.lineTo(p.x, p.y);
+          }
+          ctx.closePath();
+          ctx.fillStyle = fillStyle;
+          ctx.fill();
+        }
+        function makeSnowCap(poly, random) {
+          const { ridge, apexY, height } = poly;
+          const capBaseY = apexY + height * (0.3 + random() * 0.06);
+          if (ridge.length === 0) return [];
+          const capTop = [];
+          for (let i = 0; i < ridge.length - 1; i++) {
+            const p = ridge[i],
+              q = ridge[i + 1];
+            if (p.y <= capBaseY) capTop.push({ x: p.x, y: p.y });
+            const cross = intersectAtY(p, q, capBaseY);
+            if (cross) capTop.push(cross);
+          }
+          const last = ridge[ridge.length - 1];
+          if (last && last.y <= capBaseY) capTop.push(last);
+          const uniqTop = [];
+          for (const p of capTop.sort((a, b) => a.x - b.x)) {
+            const prev = uniqTop[uniqTop.length - 1];
+            if (!prev || Math.hypot(p.x - prev.x, p.y - prev.y) > 0.5)
+              uniqTop.push(p);
+          }
+          if (uniqTop.length < 2) return [];
+          const capBottom = [];
+          const jagAmp = Math.max(3, height * 0.04);
+          const spanX = uniqTop[uniqTop.length - 1].x - uniqTop[0].x;
+          const segs = Math.max(6, Math.min(18, Math.round(spanX / 24)));
+          for (let i = 0; i <= segs; i++) {
+            const t = i / segs;
+            const x = uniqTop[0].x + spanX * t;
+            const jag =
+              (i % 2 === 0 ? 1 : -1) * (0.5 + random() * 0.5) * jagAmp;
+            const y =
+              capBaseY + jag * 0.35 + height * 0.02 + random() * height * 0.015;
+            capBottom.push({ x, y });
+          }
+          return [...uniqTop, ...capBottom.reverse()];
+        }
+        function drawSnowCap(ctx, capPoly) {
+          if (!capPoly || capPoly.length < 3) return;
+          const first = capPoly[0];
+          let minY = first.y,
+            maxY = first.y;
+          for (const p of capPoly) {
+            minY = Math.min(minY, p.y);
+            maxY = Math.max(maxY, p.y);
+          }
+          const grad = ctx.createLinearGradient(0, minY, 0, maxY);
+          grad.addColorStop(0, "rgba(255,255,255,1.0)");
+          grad.addColorStop(1, "rgba(255,255,255,0.75)");
+          ctx.beginPath();
+          ctx.moveTo(first.x, first.y);
+          for (let i = 1; i < capPoly.length; i++) {
+            const p = capPoly[i];
+            ctx.lineTo(p.x, p.y);
+          }
+          ctx.closePath();
+          ctx.fillStyle = grad;
+          ctx.fill();
+        }
+        function sampleXsSpaced(random, min, max, count, jitterFrac = 0.35) {
+          const xs = [];
+          const span = Math.max(1, max - min);
+          const step = span / count;
+          for (let i = 0; i < count; i++) {
+            const center = min + (i + 0.5) * step;
+            const jitter = (random() * 2 - 1) * step * jitterFrac;
+            xs.push(Math.max(min, Math.min(max, center + jitter)));
+          }
+          return xs;
+        }
+        function buildLayerCanvas(
+          layer,
+          canvasW,
+          canvasH,
+          horizon,
+          seedRandom,
+          counts,
+          viewportStart,
+          viewportWidth
+        ) {
+          const offW = Math.ceil(canvasW),
+            offH = Math.ceil(canvasH);
+          const cnv = document.createElement("canvas");
+          cnv.width = offW;
+          cnv.height = offH;
+          const ctx = cnv.getContext("2d", { alpha: true });
+          ctx.clearRect(0, 0, offW, offH);
+          const r = seedRandom;
+          const HEIGHT_RANGES = {
+            tall: { min: 0.55, max: 0.75, mean: 0.65 },
+            medium: { min: 0.45, max: 0.6, mean: 0.5 },
+            short: { min: 0.25, max: 0.5, mean: 0.3 },
+          };
+          const count = counts[layer];
+          const xs = sampleXsSpaced(r, offW * 0.1, offW * 0.9, count, 0.45);
+          const viewStart = viewportStart ?? 0;
+          const safeWidth = Math.max(1, viewportWidth);
+          const viewEnd = viewStart + safeWidth;
+          const midX = viewStart + safeWidth / 2;
+          const margin = Math.max(12, safeWidth * 0.02);
+          const leftMin = viewStart + margin;
+          const leftMax = midX - margin;
+          const rightMin = midX + margin;
+          const rightMax = viewEnd - margin;
+          const inLeft = (x) => x >= leftMin && x <= leftMax;
+          const inRight = (x) => x >= rightMin && x <= rightMax;
+          let leftCount = xs.filter((x) => inLeft(x)).length;
+          let rightCount = xs.filter((x) => inRight(x)).length;
+          if (layer === "tall" && count >= 2) {
+            if (leftCount === 0)
+              xs[0] = remapClamped(r(), 0, 1, leftMin, leftMax);
+            if (rightCount === 0)
+              xs[Math.min(1, xs.length - 1)] = remapClamped(
+                r(),
+                0,
+                1,
+                rightMin,
+                rightMax
+              );
+          } else {
+            if (leftCount === 0 && xs.length > 0)
+              xs[0] = remapClamped(r(), 0, 1, leftMin, leftMax);
+            if (rightCount === 0 && xs.length > 1)
+              xs[1] = remapClamped(r(), 0, 1, rightMin, rightMax);
+          }
+          const doubleIdx = new Set();
+          if (layer === "short") {
+            const c1 = Math.floor(r() * count);
+            let c2 = Math.floor(r() * count);
+            if (c2 === c1) c2 = (c1 + 1) % count;
+            doubleIdx.add(c1);
+            doubleIdx.add(c2);
+          } else if (layer === "medium") {
+            doubleIdx.add(Math.floor(r() * count));
+          }
+          const peakPoints = [];
+          for (let i = 0; i < count; i++) {
+            const xCenter = xs[i];
+            const range = HEIGHT_RANGES[layer];
+            const h = remapClamped(
+              r(),
+              0,
+              1,
+              canvasH * range.min,
+              canvasH * range.max
+            );
+            const minW = canvasW * 0.18;
+            const maxW = canvasW * 0.55;
+            const baseW = clamp(
+              h * remapClamped(r(), 0, 1, 1.1, 1.9),
+              minW,
+              maxW
+            );
+            const w = baseW * (0.9 + r() * 0.2);
+            const numPeaks = doubleIdx.has(i) ? 2 : 1;
+            const peakDeltaVal = numPeaks === 2 ? 0.12 + r() * 0.2 : 0.15;
+            const mp = makeMountainPolygon({
+              xCenter,
+              baseY: horizon,
+              width: w,
+              height: h,
+              peaks: numPeaks,
+              random: r,
+              peakDelta: peakDeltaVal,
+            });
+            const BASE_GREY = { h: 220, s: 8, l: 58 };
+            const l = jitterLightness(layer, BASE_GREY.l, r);
+            const fill = hsl(BASE_GREY.h, BASE_GREY.s, l);
+            drawMountain(ctx, mp, fill);
+            const midOutlineX =
+              mp.outline[Math.floor(mp.outline.length / 2)]?.x ?? xCenter;
+            let apexX = mp.ridge.length > 0 ? mp.ridge[0].x : midOutlineX;
+            let apexY = mp.apexY;
+            for (const rp of mp.ridge) {
+              if (typeof rp.y === "number" && rp.y < apexY) {
+                apexY = rp.y;
+                apexX = rp.x;
+              }
+            }
+            peakPoints.push({ x: apexX, y: apexY });
+            const capPoly = makeSnowCap(mp, r);
+            if (capPoly.length >= 3) drawSnowCap(ctx, capPoly);
+          }
+          return { canvas: cnv, peakPoints };
+        }
+        let lastTheme = window.__theme ?? loadTheme();
+        let viewW = k.width();
+        let viewH = k.height();
+        const horizon = config.horizon;
+        const counts = {
+          tall: config.count?.tall ?? 2,
+          medium: config.count?.medium ?? 4,
+          short: config.count?.short ?? 5,
+        };
+        const seedBase = config.seed ?? Math.floor(Math.random() * 1e9);
+        let random = rng(seedBase);
+        const layers = [
+          {
+            kind: "tall",
+            z: layerZ("tall"),
+            parallax: 0.2,
+            root: null,
+            spriteName: "mountains_tall",
+            canvas: null,
+            offsetX: 0,
+            offsetY: 0,
+          },
+          {
+            kind: "medium",
+            z: layerZ("medium"),
+            parallax: 0.4,
+            root: null,
+            spriteName: "mountains_medium",
+            canvas: null,
+            offsetX: 0,
+            offsetY: 0,
+          },
+          {
+            kind: "short",
+            z: layerZ("short"),
+            parallax: 0.7,
+            root: null,
+            spriteName: "mountains_short",
+            canvas: null,
+            offsetX: 0,
+            offsetY: 0,
+          },
+        ];
+        let autoDrift = true;
+        let goat = null;
+        let goatBase = null;
+        let goatState = "walk";
+        let goatFacing = 1;
+        let goatS = 0;
+        let stateTimer = 0;
+        let stateDur = 0;
+        let stepPhase = 0;
+        function updateRootPosition(l) {
+          if (!l.root || !l.canvas) return;
+          const cnvW = l.canvas.width;
+          const baseX = -(cnvW - viewW) / 2;
+          const maxShift = Math.max(1, cnvW - viewW);
+          const wrapped = ((l.offsetX % maxShift) + maxShift) % maxShift;
+          l.root.pos.x = baseX + wrapped;
+          l.root.pos.y = l.offsetY;
+        }
+        const destroyAll = () => {
+          for (const l of layers) {
+            try {
+              l.root?.destroy?.();
+            } catch {}
+            l.root = null;
+            l.canvas = null;
+            l.offsetX = 0;
+            l.offsetY = 0;
+          }
+        };
+        const buildAll = (seedOverride) => {
+          destroyAll();
+          random = rng(seedOverride ?? seedBase);
+          viewW = k.width();
+          viewH = k.height();
+          const layerPeaks = { tall: [], medium: [], short: [] };
+          for (const l of layers) {
+            const cnvW = viewW * 2.2;
+            const maxPhase = Math.max(0, cnvW - viewW);
+            const startPhase = (random() * 0.3 - 0.15) * maxPhase;
+            const viewportStart = Math.max(
+              0,
+              Math.min(maxPhase, (cnvW - viewW) / 2 - startPhase)
+            );
+            const build = buildLayerCanvas(
+              l.kind,
+              cnvW,
+              viewH,
+              horizon,
+              random,
+              counts,
+              viewportStart,
+              viewW
+            );
+            l.canvas = build.canvas;
+            layerPeaks[l.kind] = build.peakPoints;
+            const c2d = build.canvas.getContext("2d");
+            const img = c2d.getImageData(
+              0,
+              0,
+              build.canvas.width,
+              build.canvas.height
+            );
+            const name = `${l.spriteName}`;
+            k.loadSprite(name, img);
+            const root = k.add([
+              k.sprite(name),
+              k.pos(-(build.canvas.width - viewW) / 2 + startPhase, 0),
+              k.anchor("topleft"),
+              k.z(l.z),
+            ]);
+            l.root = root;
+            l.offsetX = startPhase;
+            l.offsetY = 0;
+            updateRootPosition(l);
+            const isNight = lastTheme === "night";
+            l.root.opacity = isNight ? 0.82 : 1.0;
+          }
+          try {
+            const shortLayer = layers.find((L) => L.kind === "short");
+            const peaksArr = layerPeaks.short ?? [];
+            if (shortLayer && shortLayer.root && peaksArr.length > 0) {
+              let best = peaksArr[0];
+              let bestDist = Infinity;
+              const baseX = shortLayer.root.pos.x;
+              const centerX = viewW / 2;
+              const wallHalf = GAME_CONFIG.wall.width / 2;
+              const blockMin = centerX - wallHalf - 12;
+              const blockMax = centerX + wallHalf + 12;
+              for (const p of peaksArr) {
+                const worldX = baseX + p.x;
+                if (worldX >= blockMin && worldX <= blockMax) continue;
+                const d = Math.abs(worldX - centerX);
+                if (d < bestDist) {
+                  best = p;
+                  bestDist = d;
+                }
+              }
+              const peakX = best.x,
+                peakY = best.y;
+              const g = shortLayer.root.add([
+                k.pos(peakX, peakY),
+                k.anchor("center"),
+                k.z(shortLayer.z + 0.1),
+              ]);
+              goat = g;
+              goatBase = { x: peakX, y: peakY };
+              const bodyCol = k.rgb(235, 238, 245);
+              const hornCol = k.rgb(200, 180, 120);
+              const body = g.add([
+                k.rect(16, 9, { radius: 3 }),
+                k.anchor("center"),
+                k.color(bodyCol),
+              ]);
+              const head = g.add([
+                k.rect(7, 6, { radius: 2 }),
+                k.pos(10, -3),
+                k.anchor("center"),
+                k.color(bodyCol),
+              ]);
+              g.add([
+                k.rect(2, 5, { radius: 1 }),
+                k.pos(12, -8),
+                k.anchor("center"),
+                k.rotate(-20),
+                k.color(hornCol),
+              ]);
+              g.add([
+                k.rect(2, 5, { radius: 1 }),
+                k.pos(8, -8),
+                k.anchor("center"),
+                k.rotate(-40),
+                k.color(hornCol),
+              ]);
+              const legL = g.add([
+                k.rect(2, 6, { radius: 1 }),
+                k.pos(-4, 6),
+                k.anchor("center"),
+                k.color(60, 60, 70),
+              ]);
+              const legM = g.add([
+                k.rect(2, 6, { radius: 1 }),
+                k.pos(0, 6),
+                k.anchor("center"),
+                k.color(60, 60, 70),
+              ]);
+              const legR = g.add([
+                k.rect(2, 6, { radius: 1 }),
+                k.pos(4, 6),
+                k.anchor("center"),
+                k.color(60, 60, 70),
+              ]);
+              g.add([
+                k.rect(3, 2, { radius: 1 }),
+                k.pos(-10, -3),
+                k.anchor("center"),
+                k.color(bodyCol),
+              ]);
+              goatState = "walk";
+              stateTimer = 0;
+              stateDur = 2.2 + Math.random() * 0.8;
+              stepPhase = 0;
+              goatFacing = 1;
+              goatS = 0;
+              g._parts = { body, head, legL, legM, legR };
+            }
+          } catch {}
+        };
+        buildAll();
+        const DRIFT_PX_PER_SEC_BASE = 0.01;
+        k.onUpdate(() => {
+          if (goat && goatBase) {
+            const dt = Math.min(0.05, k.dt() ?? 0.016);
+            stateTimer += dt;
+            const parts = goat._parts || {};
+            if (goatState === "walk") {
+              const walkSpeed = 0.18;
+              goatS += goatFacing * walkSpeed * dt;
+              const maxExcursion = 0.65;
+              if (goatS > maxExcursion) goatS = maxExcursion;
+              if (goatS < -maxExcursion) goatS = -maxExcursion;
+              stepPhase += 3.8 * dt;
+              const step = Math.sin(stepPhase) * 4;
+              if (parts.legL) parts.legL.angle = step;
+              if (parts.legR) parts.legR.angle = -step;
+              if (parts.legM)
+                parts.legM.angle = Math.sin(stepPhase + Math.PI / 2) * 2;
+              if (parts.head) parts.head.angle = Math.sin(k.time() * 0.7) * 2.5;
+              if (
+                stateTimer >= stateDur ||
+                Math.abs(goatS) >= maxExcursion - 1e-3
+              ) {
+                goatState = "turn";
+                stateTimer = 0;
+                stateDur = 0.4 + Math.random() * 0.2;
+              }
+            } else if (goatState === "turn") {
+              const t = Math.min(1, stateTimer / Math.max(0.01, stateDur));
+              const tilt =
+                (1 - Math.cos(t * Math.PI)) * 8 * (goatFacing === 1 ? 1 : -1);
+              if (parts.body) parts.body.angle = tilt;
+              if (parts.head) parts.head.angle = tilt * 0.4;
+              if (t >= 1) {
+                goatFacing = goatFacing === 1 ? -1 : 1;
+                if (parts.body) parts.body.angle = 0;
+                goatState = "rest";
+                stateTimer = 0;
+                stateDur = 1.6 + Math.random() * 0.6;
+              }
+            } else {
+              if (parts.legL) parts.legL.angle = 0;
+              if (parts.legM) parts.legM.angle = 0;
+              if (parts.legR) parts.legR.angle = 0;
+              if (parts.head) parts.head.angle = Math.sin(k.time() * 1.2) * 3;
+              if (stateTimer >= stateDur) {
+                goatState = "walk";
+                stateTimer = 0;
+                stateDur = 2.2 + Math.random() * 0.8;
+              }
+            }
+            const xOff = goatS * 22;
+            const yOff = Math.abs(goatS) * 16;
+            goat.pos = k.vec2(goatBase.x + xOff, goatBase.y + yOff);
+          }
+          const theme = window.__theme ?? loadTheme();
+          if (theme !== lastTheme) {
+            lastTheme = theme;
+            const isNight = lastTheme === "night";
+            for (const l of layers) {
+              if (!l.root) continue;
+              l.root.opacity = isNight ? 0.82 : 1.0;
+            }
+          }
+          for (const l of layers) {
+            if (!l.root || !l.root.exists?.()) continue;
+            if (autoDrift) {
+              const drift = viewW * DRIFT_PX_PER_SEC_BASE * l.parallax * k.dt();
+              l.offsetX += drift;
+            }
+            updateRootPosition(l);
+          }
+        });
+        k.onResize(() => {
+          buildAll();
+        });
+        return {
+          regenerate: (seed) => buildAll(seed),
+          setAutoDrift: (enabled) => {
+            autoDrift = enabled;
+          },
+          scrollVertical: (deltaPx, durationSec) => {
+            const dur = Math.max(0, durationSec ?? 0);
+            for (const l of layers) {
+              const target = l.offsetY + deltaPx * l.parallax;
+              if (dur <= 0) {
+                l.offsetY = target;
+                updateRootPosition(l);
+              } else {
+                const start = l.offsetY;
+                k.tween(
+                  start,
+                  target,
+                  dur,
+                  (v) => {
+                    l.offsetY = v;
+                    updateRootPosition(l);
+                  },
+                  k.easings.easeOutCubic
+                );
+              }
+            }
+          },
+        };
+      }
+
+      // ------------------------------
+      // Rock wall (textured bands)
+      // ------------------------------
+      function spawnRockWall(k, centerX, viewH, width, bandH) {
+        const seedBase = Math.floor(Math.random() * 1e9);
+        function rngFrom(n) {
+          let a = (seedBase ^ (n * 0x9e3779b1)) >>> 0;
+          let b = (a ^ 0x85ebca6b) >>> 0;
+          let c = (b ^ 0xc2b2ae35) >>> 0;
+          let d = (c ^ 0x27d4eb2f) >>> 0;
+          return function () {
+            a >>>= 0;
+            b >>>= 0;
+            c >>>= 0;
+            d >>>= 0;
+            let t = (a + b) | 0;
+            a = b ^ (b >>> 9);
+            b = (c + (c << 3)) | 0;
+            c = (c << 21) | (c >>> 11);
+            d = (d + 1) | 0;
+            t = (t + d) | 0;
+            c = (c + t) | 0;
+            return (t >>> 0) / 4294967296;
+          };
+        }
+        const bandCount = Math.ceil(viewH / bandH) + 4;
+        const leftOffsets = [],
+          rightOffsets = [];
+        let curL = 0,
+          curR = 0;
+        const maxJitter = width * 0.12;
+        for (let i = 0; i < bandCount; i++) {
+          curL += (Math.random() - 0.5) * (width * 0.06);
+          curR += (Math.random() - 0.5) * (width * 0.06);
+          curL = Math.max(-maxJitter, Math.min(maxJitter, curL));
+          curR = Math.max(-maxJitter, Math.min(maxJitter, curR));
+          leftOffsets.push(curL);
+          rightOffsets.push(curR);
+        }
+        const edgesAt = (y) => {
+          const idx = Math.max(
+            0,
+            Math.min(bandCount - 1, Math.floor(y / bandH))
+          );
+          const lOff = leftOffsets[idx] ?? 0;
+          const rOff = rightOffsets[idx] ?? 0;
+          const left = centerX - width / 2 + lOff;
+          const right = centerX + width / 2 + rOff;
+          return { left, right };
+        };
+        const laneXAt = (y, side) => {
+          const { left, right } = edgesAt(y);
+          const w = right - left;
+          const margin = w * 0.25;
+          return side === "left" ? left + margin : right - margin;
+        };
+        const bands = [];
+        const root = k.add([k.pos(0, 0)]);
+        const buildBandSprite = (w, h, worldIdx) => {
+          const r = rngFrom(worldIdx);
+          const cnv = document.createElement("canvas");
+          cnv.width = Math.max(1, Math.ceil(w));
+          cnv.height = Math.max(1, Math.ceil(h));
+          const ctx = cnv.getContext("2d", { alpha: true });
+          ctx.fillStyle = `rgb(110, 104, 96)`;
+          ctx.fillRect(0, 0, cnv.width, cnv.height);
+          const stripCount = 2 + Math.floor(r() * 2);
+          for (let i = 0; i < stripCount; i++) {
+            const y = r() * h - h / 2;
+            const len = w * (0.28 + r() * 0.38);
+            const thick = 2 + Math.floor(r() * 2);
+            const x = (r() - 0.5) * (w * 0.1) + w / 2 - len / 2;
+            ctx.globalAlpha = 0.12 + r() * 0.08;
+            const rr = Math.round(120 + r() * 10);
+            const gg = Math.round(114 + r() * 10);
+            const bb = Math.round(104 + r() * 10);
+            ctx.fillStyle = `rgb(${rr}, ${gg}, ${bb})`;
+            ctx.fillRect(x, y + h / 2 - thick / 2, len, thick);
+          }
+          const patches = 4 + Math.floor(r() * 3);
+          for (let i = 0; i < patches; i++) {
+            const pw = w * (0.1 + r() * 0.18);
+            const ph = h * (0.18 + r() * 0.28);
+            const lighten = r() < 0.4;
+            const dr = (lighten ? 14 : -18) + (lighten ? r() * 8 : -r() * 8);
+            const dg = (lighten ? 12 : -16) + (lighten ? r() * 6 : -r() * 6);
+            const db = (lighten ? 12 : -16) + (lighten ? r() * 6 : -r() * 6);
+            ctx.globalAlpha = 0.08 + r() * 0.07;
+            const rr = Math.max(0, Math.min(255, 110 + dr));
+            const gg = Math.max(0, Math.min(255, 104 + dg));
+            const bb = Math.max(0, Math.min(255, 96 + db));
+            ctx.fillStyle = `rgb(${rr}, ${gg}, ${bb})`;
+            const x = (r() - 0.5) * (w * 0.7) + w / 2 - pw / 2;
+            const y = (r() - 0.5) * (h * 0.7) + h / 2 - ph / 2;
+            const radius = Math.min(pw, ph) * 0.25;
+            ctx.beginPath();
+            ctx.moveTo(x + radius, y);
+            ctx.lineTo(x + pw - radius, y);
+            ctx.quadraticCurveTo(x + pw, y, x + pw, y + radius);
+            ctx.lineTo(x + pw, y + ph - radius);
+            ctx.quadraticCurveTo(x + pw, y + ph, x + pw - radius, y + ph);
+            ctx.lineTo(x + radius, y + ph);
+            ctx.quadraticCurveTo(x, y + ph, x, y + ph - radius);
+            ctx.lineTo(x, y + radius);
+            ctx.quadraticCurveTo(x, y, x + radius, y);
+            ctx.closePath();
+            ctx.fill();
+          }
+          const specks = 70 + Math.floor(r() * 50);
+          for (let i = 0; i < specks; i++) {
+            const rad = 1.4 + r() * 2.6;
+            const x = (r() - 0.5) * (w * 0.9);
+            const y = (r() - 0.5) * (h * 0.9);
+            const darken = r() < 0.65;
+            const dr = darken ? -22 - r() * 12 : 16 + r() * 10;
+            const dg = darken ? -18 - r() * 10 : 14 + r() * 8;
+            const db = darken ? -18 - r() * 10 : 12 + r() * 8;
+            ctx.globalAlpha = darken ? 0.3 + r() * 0.1 : 0.18 + r() * 0.08;
+            const rr = Math.max(0, Math.min(255, 110 + dr));
+            const gg = Math.max(0, Math.min(255, 104 + dg));
+            const bb = Math.max(0, Math.min(255, 96 + db));
+            ctx.fillStyle = `rgb(${rr}, ${gg}, ${bb})`;
+            ctx.beginPath();
+            ctx.arc(x + w / 2, y + h / 2, rad, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          if (r() < 0.55) {
+            const segs = 3 + Math.floor(r() * 3);
+            let px = (r() - 0.5) * (w * 0.5);
+            let py = (r() - 0.5) * (h * 0.3);
+            let ang = r() * 80 - 40;
+            const marginX = Math.min(14, w * 0.12);
+            const marginY = Math.min(8, h * 0.2);
+            for (let s = 0; s < segs; s++) {
+              const len = 10 + r() * 18;
+              const thick = 0.8 + r() * 1.0;
+              const rad = (ang * Math.PI) / 180;
+              const dx = Math.cos(rad) * len * 0.5;
+              const dy = Math.sin(rad) * len * 0.5;
+              const minX = -w / 2 + marginX + Math.abs(dx);
+              const maxX = w / 2 - marginX - Math.abs(dx);
+              const minY = -h / 2 + marginY + Math.abs(dy);
+              const maxY = h / 2 - marginY - Math.abs(dy);
+              px = Math.max(minX, Math.min(maxX, px));
+              py = Math.max(minY, Math.min(maxY, py));
+              ctx.save();
+              ctx.globalAlpha = 0.2;
+              ctx.translate(px + w / 2, py + h / 2);
+              ctx.rotate(rad);
+              ctx.fillStyle = "rgb(30,30,30)";
+              ctx.fillRect(-len / 2, -thick / 2, len, thick);
+              ctx.restore();
+              px += Math.cos(rad) * len * 0.6;
+              py += Math.sin(rad) * len * 0.6;
+              ang += r() * 40 - 20;
+            }
+          }
+          const img = cnv
+            .getContext("2d")
+            .getImageData(0, 0, cnv.width, cnv.height);
+          const name = `rock_band_${Math.abs(worldIdx)}_${cnv.width}x${
+            cnv.height
+          }`;
+          k.loadSprite(name, img);
+          return name;
+        };
+        let worldTopIndex = 0;
+        for (let i = 0; i < bandCount; i++) {
+          const yMid = -bandH / 2 + i * bandH;
+          const { left, right } = edgesAt(yMid);
+          const w = right - left;
+          const spriteName = buildBandSprite(w, bandH + 4, worldTopIndex + i);
+          const o = root.add([
+            k.sprite(spriteName),
+            k.pos((left + right) / 2, yMid),
+            k.anchor("center"),
+            k.z(0),
+          ]);
+          bands.push(o);
+        }
+        function spawnTopBand() {
+          const topL = leftOffsets[0] ?? 0;
+          const topR = rightOffsets[0] ?? 0;
+          let nextL = topL + (Math.random() - 0.5) * (width * 0.06);
+          let nextR = topR + (Math.random() - 0.5) * (width * 0.06);
+          nextL = Math.max(-maxJitter, Math.min(maxJitter, nextL));
+          nextR = Math.max(-maxJitter, Math.min(maxJitter, nextR));
+          leftOffsets.unshift(nextL);
+          rightOffsets.unshift(nextR);
+          leftOffsets.pop();
+          rightOffsets.pop();
+          const yMid = (bands[0]?.pos.y ?? -bandH / 2) - bandH;
+          const { left, right } = edgesAt(0);
+          const w = right - left;
+          worldTopIndex -= 1;
+          const spriteName = buildBandSprite(w, bandH + 4, worldTopIndex);
+          const o = root.add([
+            k.sprite(spriteName),
+            k.pos((left + right) / 2, yMid),
+            k.anchor("center"),
+            k.z(0),
+          ]);
+          bands.unshift(o);
+          const last = bands.pop();
+          last?.destroy?.();
+        }
+        function scrollOnce(duration) {
+          return new Promise((resolve) => {
+            const startY = root.pos.y;
+            k.tween(
+              startY,
+              startY + bandH,
+              duration,
+              (v) => (root.pos.y = v),
+              k.easings.linear
+            ).then?.(() => {
+              root.pos.y = 0;
+              for (const b of bands) b.pos.y += bandH;
+              spawnTopBand();
+              resolve();
+            });
+          });
+        }
+        return { root, laneXAt, edgesAt, scrollOnce };
+      }
+
+      // ------------------------------
+      // Spray can icon
+      // ------------------------------
+      function spawnSprayCan(k, parent, x, y, side, scale = 1, z = 1.2, opts) {
+        const s = scale;
+        const root = parent.add([
+          k.pos(x, y),
+          k.anchor("center"),
+          k.z(z),
+          k.rotate(0),
+        ]);
+        const bodyColor = opts?.bodyColor ?? k.rgb(190, 190, 200);
+        const metalDark = k.rgb(150, 150, 160);
+        const capCol = k.rgb(235, 235, 240);
+        const nozzleCol = k.rgb(240, 240, 245);
+        const holeCol = k.rgb(40, 40, 40);
+        const bodyW = 14 * s,
+          bodyH = 22 * s,
+          radius = 3 * s,
+          topBandH = 3 * s,
+          capH = 6 * s;
+        const body = root.add([
+          k.rect(bodyW, bodyH, { radius }),
+          k.pos(0, 0),
+          k.anchor("center"),
+          k.color(bodyColor),
+        ]);
+        body.add([
+          k.rect(bodyW * 0.9, bodyH * 0.4, { radius: radius * 0.6 }),
+          k.pos(0, bodyH * 0.1),
+          k.anchor("center"),
+          k.color(metalDark),
+          k.opacity(0.25),
+        ]);
+        root.add([
+          k.rect(bodyW * 0.95, topBandH, { radius: topBandH * 0.3 }),
+          k.pos(0, -bodyH / 2 + topBandH / 2),
+          k.anchor("center"),
+          k.color(metalDark),
+        ]);
+        root.add([
+          k.rect(bodyW * 0.8, capH, { radius: capH * 0.5 }),
+          k.pos(0, -bodyH / 2 - capH / 2 + 1 * s),
+          k.anchor("center"),
+          k.color(capCol),
+        ]);
+        const dir = side === "left" ? -1 : 1;
+        const nozzleY = -bodyH / 2 - capH + 4 * s;
+        const stemW = 6 * s,
+          stemH = 4 * s;
+        const tipW = 4 * s,
+          tipH = 3 * s;
+        const stem = root.add([
+          k.rect(stemW, stemH, { radius: 1 * s }),
+          k.pos(dir * (bodyW * 0.2), nozzleY),
+          k.anchor("center"),
+          k.color(nozzleCol),
+        ]);
+        const tip = root.add([
+          k.rect(tipW, tipH, { radius: 1 * s }),
+          k.pos(
+            dir * (bodyW * 0.2 + stemW * 0.5 + tipW * 0.3),
+            nozzleY - 1 * s
+          ),
+          k.anchor("center"),
+          k.color(nozzleCol),
+        ]);
+        tip.add([
+          k.circle(0.8 * s),
+          k.pos(dir * (tipW * 0.3), 0),
+          k.anchor("center"),
+          k.color(holeCol),
+        ]);
+        const nozzleAnchor = root.add([
+          k.pos(
+            dir * (bodyW * 0.2 + stemW * 0.5 + tipW * 0.6),
+            nozzleY - 1 * s
+          ),
+          k.anchor("center"),
+        ]);
+        root._nozzleAnchor = nozzleAnchor;
+        return root;
+      }
+
+      // ------------------------------
+      // Climber
+      // ------------------------------
+      function spawnClimber(k, wallCenterX, baseY, modelScale = 1, opts = {}) {
+        const s = modelScale;
+        const laneOffset = GAME_CONFIG.wall.width * 0.25;
+        const leftX = wallCenterX - laneOffset;
+        const rightX = wallCenterX + laneOffset;
+        const root = k.add([k.pos(leftX, baseY), k.anchor("center"), k.z(10)]);
+        const shirtColor = k.rgb(28, 120, 200),
+          shirtDark = k.rgb(20, 92, 160),
+          skin = k.rgb(250, 215, 170),
+          hairColor = k.rgb(60, 40, 30),
+          pants = k.rgb(170, 120, 40),
+          shoe = k.rgb(22, 26, 30),
+          harnessRed = k.rgb(180, 50, 40),
+          beltColor = k.rgb(200, 80, 40),
+          ropeColor = k.rgb(230, 110, 40);
+        const bodyW = 24 * s,
+          bodyH = 30 * s;
+        const body = k.add([
+          k.rect(bodyW, bodyH, { radius: 2 * s }),
+          k.pos(0, 0),
+          k.color(shirtColor),
+          k.anchor("center"),
+          k.z(11),
+          k.rotate(0),
+        ]);
+        const neck = k.add([
+          k.rect(8 * s, 8 * s, { radius: 1 * s }),
+          k.pos(0, -(bodyH / 2 + 3.5 * s)),
+          k.anchor("center"),
+          k.color(skin),
+          k.z(12),
+          k.rotate(0),
+        ]);
+        const headRadius = 8 * s;
+        const head = k.add([
+          k.rect(14 * s, 14 * s, { radius: 1 * s }),
+          k.pos(0, -(bodyH / 2 + 14 * s)),
+          k.anchor("center"),
+          k.color(skin),
+          k.z(13),
+          k.rotate(0),
+        ]);
+        const hairBack = k.add([
+          k.rect(20 * s, 14 * s, { radius: 2 * s }),
+          k.pos(0, -(bodyH / 2 + 14 * s) + 3 * s),
+          k.anchor("center"),
+          k.color(hairColor),
+          k.z(11.5),
+          k.rotate(0),
+        ]);
+        const hair = k.add([
+          k.rect(18 * s, 16 * s, { radius: 2 * s }),
+          k.pos(-2 * s, -(bodyH / 2 + 16 * s)),
+          k.anchor("center"),
+          k.color(hairColor),
+          k.z(12.2),
+          k.rotate(0),
+        ]);
+        const belt = k.add([
+          k.rect(bodyW, 5 * s, { radius: 1 * s }),
+          k.pos(0, bodyH / 2 - 7 * s),
+          k.anchor("center"),
+          k.color(beltColor),
+          k.z(12),
+          k.rotate(0),
+        ]);
+        const harnessL = k.add([
+          k.rect(10 * s, 8 * s, { radius: 2 * s }),
+          k.pos(-6 * s, bodyH / 2 - 2 * s),
+          k.anchor("center"),
+          k.color(harnessRed),
+          k.opacity(0),
+          k.z(12),
+          k.rotate(0),
+        ]);
+        const harnessR = k.add([
+          k.rect(10 * s, 8 * s, { radius: 2 * s }),
+          k.pos(6 * s, bodyH / 2 - 2 * s),
+          k.anchor("center"),
+          k.color(harnessRed),
+          k.opacity(0),
+          k.z(12),
+          k.rotate(0),
+        ]);
+        const loopCol = k.rgb(150, 50, 40);
+        const legLoopWidth = 12 * s,
+          legLoopHeight = 3 * s;
+        const legLoopLeft = k.add([
+          k.rect(legLoopWidth, legLoopHeight, { radius: 1.5 * s }),
+          k.pos(-7 * s, bodyH / 2 + 4 * s),
+          k.anchor("center"),
+          k.color(loopCol),
+          k.z(11),
+        ]);
+        const legLoopRight = k.add([
+          k.rect(legLoopWidth, legLoopHeight, { radius: 1.5 * s }),
+          k.pos(7 * s, bodyH / 2 + 4 * s),
+          k.anchor("center"),
+          k.color(loopCol),
+          k.z(11),
+        ]);
+        const legLeft = k.add([
+          k.rect(10 * s, 28 * s, { radius: 1 * s }),
+          k.pos(-7 * s, bodyH / 2),
+          k.anchor("top"),
+          k.color(pants),
+          k.z(10),
+          k.rotate(0),
+        ]);
+        const legRight = k.add([
+          k.rect(10 * s, 28 * s, { radius: 1 * s }),
+          k.pos(7 * s, bodyH / 2),
+          k.anchor("top"),
+          k.color(pants),
+          k.z(10),
+          k.rotate(0),
+        ]);
+        const footLeft = k.add([
+          k.rect(10 * s, 6 * s, { radius: 1 * s }),
+          k.pos(-7 * s, bodyH / 2 + 28 * s),
+          k.anchor("top"),
+          k.color(shoe),
+          k.z(10),
+          k.rotate(0),
+        ]);
+        const footRight = k.add([
+          k.rect(10 * s, 6 * s, { radius: 1 * s }),
+          k.pos(7 * s, bodyH / 2 + 28 * s),
+          k.anchor("top"),
+          k.color(shoe),
+          k.z(10),
+          k.rotate(0),
+        ]);
+        const armLeft = k.add([
+          k.rect(6 * s, 28 * s, { radius: 1 * s }),
+          k.pos(-12 * s, -(bodyH / 2)),
+          k.anchor("bot"),
+          k.color(skin),
+          k.z(12),
+          k.rotate(0),
+        ]);
+        const armRight = k.add([
+          k.rect(6 * s, 28 * s, { radius: 1 * s }),
+          k.pos(12 * s, -(bodyH / 2)),
+          k.anchor("bot"),
+          k.color(skin),
+          k.z(12),
+          k.rotate(0),
+        ]);
+        const sleeveW = 10 * s,
+          sleeveH = 12 * s;
+        const sleeveL = armLeft.add([
+          k.rect(sleeveW, sleeveH, { radius: 2 * s }),
+          k.pos(0, 0),
+          k.anchor("bot"),
+          k.color(shirtColor),
+          k.z(12.2),
+        ]);
+        const sleeveR = armRight.add([
+          k.rect(sleeveW, sleeveH, { radius: 2 * s }),
+          k.pos(0, 0),
+          k.anchor("bot"),
+          k.color(shirtColor),
+          k.z(12.2),
+        ]);
+        const rope = k.add([
+          k.rect(2 * s, Math.max(80 * s, k.height() * 2)),
+          k.pos(0, -36 * s),
+          k.anchor("top"),
+          k.color(ropeColor),
+          k.z(9),
+          k.rotate(0),
+        ]);
+        if (opts.showRope === false) rope.hidden = true;
+        const showPouch = opts.showPouch === true;
+        const pouchRoot = showPouch
+          ? k.add([k.pos(0, 0), k.anchor("center"), k.z(12.05)])
+          : null;
+        if (pouchRoot) {
+          pouchRoot.add([
+            k.rect(10 * s, 12 * s, { radius: 4 * s }),
+            k.pos(0, 0),
+            k.anchor("center"),
+            k.color(60, 60, 70),
+            k.opacity(0.95),
+          ]);
+          pouchRoot.add([
+            k.rect(10 * s, 3 * s, { radius: 2 * s }),
+            k.pos(0, -6.5 * s),
+            k.anchor("center"),
+            k.color(200, 200, 210),
+            k.opacity(0.25),
+          ]);
+          pouchRoot.add([
+            k.rect(2 * s, 8 * s, { radius: 1 * s }),
+            k.pos(-3 * s, -11 * s),
+            k.anchor("bot"),
+            k.color(90, 90, 100),
+            k.opacity(0.9),
+            k.rotate(-10),
+          ]);
+        }
+        const shirtLight = k.rgb(40, 150, 220),
+          skinShadow = k.rgb(235, 200, 158),
+          pantsDark = k.rgb(140, 100, 32);
+        const pecL = body.add([
+          k.rect(10 * s, 6 * s, { radius: 2 * s }),
+          k.pos(-6 * s, -10 * s),
+          k.anchor("center"),
+          k.color(shirtLight),
+          k.opacity(0.25),
+          k.z(11.1),
+          k.rotate(-8),
+        ]);
+        const pecR = body.add([
+          k.rect(10 * s, 6 * s, { radius: 2 * s }),
+          k.pos(6 * s, -10 * s),
+          k.anchor("center"),
+          k.color(shirtLight),
+          k.opacity(0.25),
+          k.z(11.1),
+          k.rotate(8),
+        ]);
+        const abs1 = body.add([
+          k.rect(8 * s, 4 * s, { radius: 1 * s }),
+          k.pos(0, 0),
+          k.anchor("center"),
+          k.color(shirtDark),
+          k.opacity(0.18),
+          k.z(11.1),
+        ]);
+        const abs2 = body.add([
+          k.rect(8 * s, 4 * s, { radius: 1 * s }),
+          k.pos(0, 6 * s),
+          k.anchor("center"),
+          k.color(shirtDark),
+          k.opacity(0.18),
+          k.z(11.1),
+        ]);
+        const abs3 = body.add([
+          k.rect(8 * s, 4 * s, { radius: 1 * s }),
+          k.pos(0, 12 * s),
+          k.anchor("center"),
+          k.color(shirtDark),
+          k.opacity(0.18),
+          k.z(11.1),
+        ]);
+        const obliqueL = body.add([
+          k.rect(6 * s, 10 * s, { radius: 2 * s }),
+          k.pos(-10 * s, 4 * s),
+          k.anchor("center"),
+          k.color(shirtDark),
+          k.opacity(0.12),
+          k.z(11.05),
+          k.rotate(18),
+        ]);
+        const obliqueR = body.add([
+          k.rect(6 * s, 10 * s, { radius: 2 * s }),
+          k.pos(10 * s, 4 * s),
+          k.anchor("center"),
+          k.color(shirtDark),
+          k.opacity(0.12),
+          k.z(11.05),
+          k.rotate(-18),
+        ]);
+        const neckShade = neck.add([
+          k.rect(8 * s, 3 * s, { radius: 1 * s }),
+          k.pos(0, 1 * s),
+          k.anchor("top"),
+          k.color(skinShadow),
+          k.opacity(0.25),
+          k.z(12.1),
+        ]);
+        const lBicep = armLeft.add([
+          k.rect(7 * s, 10 * s, { radius: 3 * s }),
+          k.pos(0, -16 * s),
+          k.anchor("center"),
+          k.color(skinShadow),
+          k.opacity(0.22),
+          k.z(12.1),
+        ]);
+        const lFore = armLeft.add([
+          k.rect(6 * s, 9 * s, { radius: 2 * s }),
+          k.pos(0, -6 * s),
+          k.anchor("center"),
+          k.color(skinShadow),
+          k.opacity(0.18),
+          k.z(12.1),
+        ]);
+        const rBicep = armRight.add([
+          k.rect(7 * s, 10 * s, { radius: 3 * s }),
+          k.pos(0, -16 * s),
+          k.anchor("center"),
+          k.color(skinShadow),
+          k.opacity(0.22),
+          k.z(12.1),
+        ]);
+        const rFore = armRight.add([
+          k.rect(6 * s, 9 * s, { radius: 2 * s }),
+          k.pos(0, -6 * s),
+          k.anchor("center"),
+          k.color(skinShadow),
+          k.opacity(0.18),
+          k.z(12.1),
+        ]);
+        const thighL = legLeft.add([
+          k.rect(10 * s, 16 * s, { radius: 2 * s }),
+          k.pos(0, 8 * s),
+          k.anchor("top"),
+          k.color(pantsDark),
+          k.opacity(0.18),
+          k.z(10.1),
+        ]);
+        const thighR = legRight.add([
+          k.rect(10 * s, 16 * s, { radius: 2 * s }),
+          k.pos(0, 8 * s),
+          k.anchor("top"),
+          k.color(pantsDark),
+          k.opacity(0.18),
+          k.z(10.1),
+        ]);
+        const shinL = legLeft.add([
+          k.rect(8 * s, 10 * s, { radius: 2 * s }),
+          k.pos(0, 18 * s),
+          k.anchor("top"),
+          k.color(pantsDark),
+          k.opacity(0.12),
+          k.z(10.1),
+        ]);
+        const shinR = legRight.add([
+          k.rect(8 * s, 10 * s, { radius: 2 * s }),
+          k.pos(0, 18 * s),
+          k.anchor("top"),
+          k.color(pantsDark),
+          k.opacity(0.12),
+          k.z(10.1),
+        ]);
+        const kneeL = legLeft.add([
+          k.circle(2.5 * s),
+          k.pos(0, 16 * s),
+          k.anchor("center"),
+          k.color(220, 220, 220),
+          k.opacity(0.15),
+          k.z(10.2),
+        ]);
+        const kneeR = legRight.add([
+          k.circle(2.5 * s),
+          k.pos(0, 16 * s),
+          k.anchor("center"),
+          k.color(220, 220, 220),
+          k.opacity(0.15),
+          k.z(10.2),
+        ]);
+        const footHL = footLeft.add([
+          k.rect(9 * s, 2 * s, { radius: 1 * s }),
+          k.pos(0, 2 * s),
+          k.anchor("top"),
+          k.color(255, 255, 255),
+          k.opacity(0.1),
+          k.z(10.1),
+        ]);
+        const footHR = footRight.add([
+          k.rect(9 * s, 2 * s, { radius: 1 * s }),
+          k.pos(0, 2 * s),
+          k.anchor("top"),
+          k.color(255, 255, 255),
+          k.opacity(0.1),
+          k.z(10.1),
+        ]);
+        const c = {
+          root,
+          body,
+          head,
+          hair,
+          hairBack,
+          neck,
+          belt,
+          harness: harnessL,
+          legLoopLeft,
+          legLoopRight,
+          legLeft,
+          legRight,
+          footLeft,
+          footRight,
+          armLeft,
+          armRight,
+          rope,
+          side: "left",
+          jitterTime: 0,
+          leftX,
+          rightX,
+          baseY: baseY,
+          armReachLeft: 0,
+          armReachRight: 0,
+          headRadius,
+          scale: s,
+          facingWall: false,
+        };
+        k.onUpdate(() => {
+          const t = k.time();
+          const sway = Math.sin(t * 2) * 1.3;
+          body.angle = body.angle ?? 0;
+          rope.angle = rope.angle ?? 0;
+          body.angle = sway;
+          rope.angle = sway * 0.6;
+          const breathe = Math.sin(Math.PI * t);
+          const breathOffset = breathe * 2;
+          const headTilt = Math.sin(t * 2.6) * 3;
+          const headSwayX = Math.sin(t * 1.8) * 1.2;
+          c.jitterTime += k.dt();
+          const j = Math.sin(c.jitterTime * 18) * 0.8;
+          const rp = c.root.pos;
+          body.pos = k.vec2(rp.x, rp.y + breathOffset);
+          neck.pos = k.vec2(rp.x, rp.y + breathOffset - (bodyH / 2 + 3.5 * s));
+          head.pos = k.vec2(
+            rp.x + headSwayX,
+            rp.y + breathOffset - (bodyH / 2 + 14 * s)
+          );
+          head.angle = headTilt;
+          hair.pos = k.vec2(
+            rp.x - 2 * s + headSwayX * 0.6,
+            rp.y + breathOffset - (bodyH / 2 + 16 * s)
+          );
+          hair.angle = headTilt * 0.9;
+          hairBack.pos = k.vec2(
+            rp.x - 1 * s + headSwayX * 0.4,
+            rp.y + breathOffset - (bodyH / 2 + 14 * s) + 3 * s
+          );
+          hairBack.angle = headTilt * 0.6;
+          if (c.facingWall) {
+            hairBack.z = 13.6;
+            hair.z = 11.6;
+          } else {
+            hairBack.z = 11.5;
+            hair.z = 12.2;
+          }
+          belt.pos = k.vec2(rp.x, rp.y + breathOffset + bodyH / 2 - 7 * s);
+          harnessL.pos = k.vec2(
+            rp.x - 6 * s,
+            rp.y + breathOffset + bodyH / 2 - 2 * s
+          );
+          harnessR.pos = k.vec2(
+            rp.x + 6 * s,
+            rp.y + breathOffset + bodyH / 2 - 2 * s
+          );
+          legLeft.pos = k.vec2(rp.x - 7 * s, rp.y + bodyH / 2);
+          legRight.pos = k.vec2(rp.x + 7 * s, rp.y + bodyH / 2);
+          const legTopY = rp.y + bodyH / 2;
+          const kneeY = legTopY + 16 * s;
+          const hipY = legTopY - 2 * s;
+          const kneeToHipT = 4 / 7;
+          const loopY = kneeY + kneeToHipT * (hipY - kneeY);
+          legLoopLeft.pos = k.vec2(rp.x - 7 * s, loopY);
+          legLoopRight.pos = k.vec2(rp.x + 7 * s, loopY);
+          footLeft.pos = k.vec2(rp.x - 7 * s, rp.y + bodyH / 2 + 28 * s);
+          footRight.pos = k.vec2(rp.x + 7 * s, rp.y + bodyH / 2 + 28 * s);
+          rope.pos = k.vec2(rp.x, rp.y + breathOffset * 0.5 - 36 * s);
+          rope.height = Math.max(rope.height ?? 0, k.height() * 2);
+          if (pouchRoot) {
+            const hipX = rp.x + 10 * s;
+            const hipY = rp.y + breathOffset + bodyH / 2 - 4 * s;
+            pouchRoot.pos = k.vec2(hipX, hipY);
+            pouchRoot.angle = -(sway * 0.5);
+          }
+          const leftJit = c.side === "left" ? j : 0;
+          const rightJit = c.side === "right" ? j : 0;
+          const armsBaseY = rp.y + breathOffset - bodyH / 2 - 2;
+          const shoulderSpread = c.facingWall ? 14 * s : 12 * s;
+          c.armLeft.pos = k.vec2(
+            rp.x - shoulderSpread + leftJit,
+            armsBaseY - c.armReachLeft
+          );
+          c.armRight.pos = k.vec2(
+            rp.x + shoulderSpread + rightJit,
+            armsBaseY - c.armReachRight
+          );
+        });
+        return c;
+      }
+
+      function estimateClimberHeightPx(scale) {
+        return 72 * scale;
+      }
+
+      function reachToSide(k, climber, side) {
+        const targetX = side === "left" ? climber.leftX : climber.rightX;
+        climber.side = side;
+        const duration = GAME_CONFIG.inputLockMs / 1000;
+        k.tween(
+          climber.root.pos.x,
+          targetX,
+          duration,
+          (v) => (climber.root.pos.x = v),
+          k.easings.easeOutCubic
+        );
+        const reachDur = duration * 0.5;
+        const pullDur = duration * 0.5;
+        const pullHeight = 8;
+        if (side === "left") {
+          const fromA = climber.armLeft.angle ?? 0;
+          const reachTw = k.tween(
+            fromA,
+            -60,
+            reachDur * 0.8,
+            (v) => (climber.armLeft.angle = v),
+            k.easings.easeOutCubic
+          );
+          reachTw.then?.(() => {
+            k.tween(
+              climber.armLeft.angle,
+              0,
+              pullDur * 0.8,
+              (v) => (climber.armLeft.angle = v),
+              k.easings.easeOutCubic
+            );
+          });
+          const reachTarget = climber.headRadius * 2;
+          k.tween(
+            climber.armReachLeft,
+            reachTarget,
+            reachDur,
+            (v) => (climber.armReachLeft = v),
+            k.easings.linear
+          ).then?.(() => {
+            k.tween(
+              climber.armReachLeft,
+              0,
+              pullDur,
+              (v) => (climber.armReachLeft = v),
+              k.easings.easeInCubic
+            );
+            const y0 = climber.root.pos.y;
+            k.tween(
+              y0,
+              y0 - pullHeight,
+              pullDur * 0.6,
+              (v) => (climber.root.pos.y = v),
+              k.easings.easeOutCubic
+            ).then?.(() => {
+              k.tween(
+                climber.root.pos.y,
+                y0,
+                pullDur * 0.4,
+                (v) => (climber.root.pos.y = v),
+                k.easings.easeInCubic
+              );
+            });
+          });
+        } else {
+          const fromA = climber.armRight.angle ?? 0;
+          const reachTw = k.tween(
+            fromA,
+            60,
+            reachDur * 0.8,
+            (v) => (climber.armRight.angle = v),
+            k.easings.easeOutCubic
+          );
+          reachTw.then?.(() => {
+            k.tween(
+              climber.armRight.angle,
+              0,
+              pullDur * 0.8,
+              (v) => (climber.armRight.angle = v),
+              k.easings.easeOutCubic
+            );
+          });
+          const reachTarget = climber.headRadius * 2;
+          k.tween(
+            climber.armReachRight,
+            reachTarget,
+            reachDur,
+            (v) => (climber.armReachRight = v),
+            k.easings.linear
+          ).then?.(() => {
+            k.tween(
+              climber.armReachRight,
+              0,
+              pullDur,
+              (v) => (climber.armReachRight = v),
+              k.easings.easeInCubic
+            );
+            const y0 = climber.root.pos.y;
+            k.tween(
+              y0,
+              y0 - pullHeight,
+              pullDur * 0.6,
+              (v) => (climber.root.pos.y = v),
+              k.easings.easeOutCubic
+            ).then?.(() => {
+              k.tween(
+                climber.root.pos.y,
+                y0,
+                pullDur * 0.4,
+                (v) => (climber.root.pos.y = v),
+                k.easings.easeInCubic
+              );
+            });
+          });
+        }
+      }
+
+      // ------------------------------
+      // Entities: Maltese dog
+      // ------------------------------
+      function spawnMalteseDog(k, opts) {
+        const s = Math.max(0.3, opts.scale ?? 1);
+        const z = opts.z ?? 5.2;
+        const bodyW = 26 * s,
+          bodyH = 14 * s,
+          headW = 12 * s,
+          headH = 12 * s,
+          legW = 3.2 * s,
+          legH = 6 * s;
+        const root = k.add([
+          k.pos(opts.x, opts.groundY),
+          k.anchor("bot"),
+          { z },
+        ]);
+        const shadow = root.add([
+          k.rect(bodyW * 0.9, Math.max(2, bodyH * 0.18), {
+            radius: bodyH * 0.09,
+          }),
+          k.pos(0, -1),
+          k.anchor("bot"),
+          k.color(0, 0, 0),
+          k.opacity(0.15),
+        ]);
+        const white = k.rgb(245, 245, 245);
+        const white2 = k.rgb(255, 255, 255);
+        const body = root.add([
+          k.rect(bodyW, bodyH, { radius: bodyH * 0.4 }),
+          k.pos(0, -legH),
+          k.anchor("bot"),
+          k.color(white2),
+        ]);
+        body.add([
+          k.rect(bodyW * 0.7, bodyH * 0.35, { radius: bodyH * 0.2 }),
+          k.pos(-bodyW * 0.1, -bodyH * 0.5),
+          k.anchor("center"),
+          k.color(255, 255, 255),
+          k.opacity(0.18),
+        ]);
+        const tail = body.add([
+          k.rect(bodyW * 0.3, bodyH * 0.35, { radius: bodyH * 0.2 }),
+          k.pos(bodyW * 0.52, -bodyH * 0.65),
+          k.anchor("center"),
+          k.color(white),
+          k.rotate(25),
+        ]);
+        const head = root.add([
+          k.rect(headW, headH, { radius: headH * 0.35 }),
+          k.pos(bodyW * 0.35, -legH - bodyH + 2 * s),
+          k.anchor("center"),
+          k.color(white2),
+        ]);
+        const earL = head.add([
+          k.rect(headW * 0.35, headH * 0.6, { radius: headH * 0.25 }),
+          k.pos(-headW * 0.55, 0),
+          k.anchor("center"),
+          k.color(white),
+          k.opacity(0.95),
+        ]);
+        const earR = head.add([
+          k.rect(headW * 0.35, headH * 0.6, { radius: headH * 0.25 }),
+          k.pos(headW * 0.55, 0),
+          k.anchor("center"),
+          k.color(white),
+          k.opacity(0.95),
+        ]);
+        const eyeL = head.add([
+          k.circle(1.2 * s),
+          k.pos(-headW * 0.18, -headH * 0.05),
+          k.anchor("center"),
+          k.color(30, 30, 30),
+        ]);
+        const eyeR = head.add([
+          k.circle(1.2 * s),
+          k.pos(headW * 0.18, -headH * 0.05),
+          k.anchor("center"),
+          k.color(30, 30, 30),
+        ]);
+        const nose = head.add([
+          k.rect(2.6 * s, 1.8 * s, { radius: 1 * s }),
+          k.pos(0, headH * 0.08),
+          k.anchor("center"),
+          k.color(40, 40, 40),
+        ]);
+        const collarColor = k.rgb(160, 200, 120);
+        const collarRoot = head.add([
+          k.pos(0, headH * 0.48),
+          k.anchor("center"),
+          k.z(9999),
+        ]);
+        const outerR = Math.max(4.5 * s, headH * 0.32);
+        const innerR = outerR * 0.78;
+        const samples = 9;
+        for (let i = 0; i < samples; i++) {
+          const t = (i / (samples - 1)) * Math.PI;
+          const x = Math.cos(t) * outerR * 0.9;
+          const y = Math.sin(t) * outerR * 0.35;
+          collarRoot.add([
+            k.circle(Math.max(2.2 * s, outerR * 0.22)),
+            k.pos(x, y),
+            k.anchor("center"),
+            k.color(collarColor),
+          ]);
+        }
+        for (let i = 0; i < samples; i++) {
+          const t = (i / (samples - 1)) * Math.PI;
+          const x = Math.cos(t) * innerR * 0.9;
+          const y = Math.sin(t) * innerR * 0.32;
+          collarRoot.add([
+            k.circle(Math.max(2.0 * s, innerR * 0.22)),
+            k.pos(x, y - 0.5 * s),
+            k.anchor("center"),
+            k.color(white2),
+          ]);
+        }
+        collarRoot.add([
+          k.rect(outerR * 1.2, Math.max(1.2 * s, 2), { radius: 1 }),
+          k.pos(0, -outerR * 0.08),
+          k.anchor("center"),
+          k.color(255, 255, 255),
+          k.opacity(0.08),
+        ]);
+        const tongue = head.add([
+          k.rect(2.2 * s, 3.2 * s, { radius: 1 * s }),
+          k.pos(0, headH * 0.24),
+          k.anchor("top"),
+          k.color(240, 120, 140),
+        ]);
+        tongue.hidden = true;
+        const legFL = root.add([
+          k.rect(legW, legH, { radius: legW * 0.5 }),
+          k.pos(bodyW * 0.04, 0),
+          k.anchor("bot"),
+          k.color(white),
+        ]);
+        const legFR = root.add([
+          k.rect(legW, legH, { radius: legW * 0.5 }),
+          k.pos(bodyW * 0.22, 0),
+          k.anchor("bot"),
+          k.color(white),
+        ]);
+        const legBL = root.add([
+          k.rect(legW, legH, { radius: legW * 0.5 }),
+          k.pos(-bodyW * 0.42, 0),
+          k.anchor("bot"),
+          k.color(white),
+        ]);
+        const legBR = root.add([
+          k.rect(legW, legH, { radius: legW * 0.5 }),
+          k.pos(-bodyW * 0.22, 0),
+          k.anchor("bot"),
+          k.color(white),
+        ]);
+        const baseUpperH = Math.max(1.5 * s, 2);
+        const uFL = root.add([
+          k.rect(legW * 1.05, baseUpperH, { radius: legW * 0.5 }),
+          k.pos(legFL.pos.x, body.pos.y),
+          k.anchor("top"),
+          k.color(white),
+          k.opacity(0.98),
+        ]);
+        const uFR = root.add([
+          k.rect(legW * 1.05, baseUpperH, { radius: legW * 0.5 }),
+          k.pos(legFR.pos.x, body.pos.y),
+          k.anchor("top"),
+          k.color(white),
+          k.opacity(0.98),
+        ]);
+        const uBL = root.add([
+          k.rect(legW * 1.05, baseUpperH, { radius: legW * 0.5 }),
+          k.pos(legBL.pos.x, body.pos.y),
+          k.anchor("top"),
+          k.color(white),
+          k.opacity(0.98),
+        ]);
+        const uBR = root.add([
+          k.rect(legW * 1.05, baseUpperH, { radius: legW * 0.5 }),
+          k.pos(legBR.pos.x, body.pos.y),
+          k.anchor("top"),
+          k.color(white),
+          k.opacity(0.98),
+        ]);
+        const jointR = Math.max(1.6 * s, 2.2 * s);
+        const jointYOffset = Math.max(1.2 * s, legH * 0.22);
+        const jointColor = k.rgb(235, 235, 235);
+        const jFL = root.add([
+          k.circle(jointR),
+          k.pos(legFL.pos.x, -jointYOffset),
+          k.anchor("center"),
+          k.color(jointColor),
+          k.opacity(0.95),
+        ]);
+        const jFR = root.add([
+          k.circle(jointR),
+          k.pos(legFR.pos.x, -jointYOffset),
+          k.anchor("center"),
+          k.color(jointColor),
+          k.opacity(0.95),
+        ]);
+        const jBL = root.add([
+          k.circle(jointR),
+          k.pos(legBL.pos.x, -jointYOffset),
+          k.anchor("center"),
+          k.color(jointColor),
+          k.opacity(0.95),
+        ]);
+        const jBR = root.add([
+          k.circle(jointR),
+          k.pos(legBR.pos.x, -jointYOffset),
+          k.anchor("center"),
+          k.color(jointColor),
+          k.opacity(0.95),
+        ]);
+        function syncJoints() {
+          jFL.pos = k.vec2(legFL.pos.x, legFL.pos.y - jointYOffset);
+          jFR.pos = k.vec2(legFR.pos.x, legFR.pos.y - jointYOffset);
+          jBL.pos = k.vec2(legBL.pos.x, legBL.pos.y - jointYOffset);
+          jBR.pos = k.vec2(legBR.pos.x, legBR.pos.y - jointYOffset);
+        }
+        function syncUpperLegs() {
+          const by = body.pos.y;
+          const overlap = 1.2 * s;
+          const topY_FL = legFL.pos.y - legH;
+          const topY_FR = legFR.pos.y - legH;
+          const topY_BL = legBL.pos.y - legH;
+          const topY_BR = legBR.pos.y - legH;
+          const hFL = Math.max(1, topY_FL - by + overlap);
+          const hFR = Math.max(1, topY_FR - by + overlap);
+          const hBL = Math.max(1, topY_BL - by + overlap);
+          const hBR = Math.max(1, topY_BR - by + overlap);
+          uFL.pos = k.vec2(legFL.pos.x, by);
+          uFR.pos = k.vec2(legFR.pos.x, by);
+          uBL.pos = k.vec2(legBL.pos.x, by);
+          uBR.pos = k.vec2(legBR.pos.x, by);
+          uFL.scale = k.vec2(1, hFL / baseUpperH);
+          uFR.scale = k.vec2(1, hFR / baseUpperH);
+          uBL.scale = k.vec2(1, hBL / baseUpperH);
+          uBR.scale = k.vec2(1, hBR / baseUpperH);
+        }
+        const pawLift = root.add([
+          k.rect(legW, legH * 0.9, { radius: legW * 0.5 }),
+          k.pos(bodyW * 0.05, -legH * 0.2),
+          k.anchor("bot"),
+          k.color(white),
+        ]);
+        pawLift.hidden = true;
+        let facingRight = true;
+        let roamMinX = Math.min(opts.roamMinX, opts.roamMaxX);
+        let roamMaxX = Math.max(opts.roamMinX, opts.roamMaxX);
+        let vx = 10 * s;
+        let bobPhase = 0;
+        let state = "walk";
+        let stateTimer = 1 + Math.random() * 2;
+        let lickTimer = 0;
+        let tongueBurstActive = false;
+        let tongueBurstT = 0;
+        const tongueBurstDur = 0.35;
+        function clamp(x, a, b) {
+          return Math.max(a, Math.min(b, x));
+        }
+        function enterWalk() {
+          state = "walk";
+          stateTimer = 0.8 + Math.random() * 1.2;
+          tongue.hidden = true;
+          pawLift.hidden = true;
+        }
+        function enterSit() {
+          state = "sit";
+          stateTimer = 3 + Math.random() * 3;
+          lickTimer = 0.2 + Math.random() * 0.5;
+          bobPhase = 0;
+        }
+        function chooseNext() {
+          const r = Math.random();
+          if (r < 0.72) enterSit();
+          else enterWalk();
+        }
+        function updateWalk(dt) {
+          const x = root.pos.x;
+          const nearL = x <= roamMinX + 2;
+          const nearR = x >= roamMaxX - 2;
+          if (nearL) facingRight = true;
+          if (nearR) facingRight = false;
+          if (Math.random() < 0.001) facingRight = !facingRight;
+          const dir = facingRight ? 1 : -1;
+          root.scale = k.vec2(dir, 1);
+          root.pos.x = clamp(x + dir * vx * dt, roamMinX, roamMaxX);
+          bobPhase += dt * 8;
+          const bob = Math.sin(bobPhase) * 0.8 * s;
+          body.pos.y = -legH - bob;
+          head.pos.y = -legH - bodyH + 2 * s - bob * 0.6;
+          tail.angle = 25 + Math.sin(k.time() * 6) * 10;
+          earL.angle = Math.sin(k.time() * 7) * 6;
+          earR.angle = -Math.sin(k.time() * 7 + 0.7) * 6;
+          const swing = Math.sin(bobPhase) * 2.5 * s;
+          legFL.pos.y = swing * 0.6;
+          legFR.pos.y = -swing * 0.6;
+          legBL.pos.y = -swing * 0.4;
+          legBR.pos.y = swing * 0.4;
+          syncJoints();
+          syncUpperLegs();
+        }
+        function updateSit(dt) {
+          body.pos.y = -legH + 2 * s;
+          head.pos.y = -legH - bodyH + 4 * s;
+          legFL.pos.y = 2 * s;
+          legFR.pos.y = 2 * s;
+          legBL.pos.y = 2.5 * s;
+          legBR.pos.y = 2.5 * s;
+          tail.angle = 35 + Math.sin(k.time() * 4) * 6;
+          earL.angle = Math.sin(k.time() * 5) * 4;
+          earR.angle = -Math.sin(k.time() * 5 + 0.6) * 4;
+          syncJoints();
+          syncUpperLegs();
+          lickTimer -= dt;
+          if (lickTimer <= 0 && !tongueBurstActive) {
+            tongue.hidden = false;
+            pawLift.hidden = false;
+            pawLift.pos = k.vec2(bodyW * 0.0, -legH * 0.2);
+            tongueBurstActive = true;
+            tongueBurstT = 0;
+            k.wait(tongueBurstDur, () => {
+              if (tongue.exists()) tongue.hidden = true;
+            });
+            k.wait(0.5, () => {
+              if (pawLift.exists()) pawLift.hidden = true;
+            });
+            lickTimer = 0.8 + Math.random() * 1.0;
+          }
+        }
+        k.onUpdate(() => {
+          if (!root.exists()) return;
+          const dt = Math.min(0.05, k.dt());
+          stateTimer -= dt;
+          if (stateTimer <= 0) chooseNext();
+          if (state === "walk") updateWalk(dt);
+          else updateSit(dt);
+          if (tongueBurstActive) {
+            tongueBurstT += dt;
+            const baseLen = 3.2 * s;
+            const longLen = 5.2 * s;
+            const u = Math.sin(
+              Math.min(1, tongueBurstT / tongueBurstDur) * Math.PI
+            );
+            tongue.pos.y = headH * 0.24 + u * (longLen - baseLen) * 0.6;
+            if (tongueBurstT >= tongueBurstDur) {
+              tongueBurstActive = false;
+            }
+          }
+        });
+        return {
+          root,
+          setRoamBounds: (minX, maxX) => {
+            roamMinX = Math.min(minX, maxX);
+            roamMaxX = Math.max(minX, maxX);
+            root.pos.x = clamp(root.pos.x, roamMinX, roamMaxX);
+          },
+        };
+      }
+
+      // ------------------------------
+      // Entities: small deer
+      // ------------------------------
+      function spawnSmallDeer(k, opts) {
+        const s = Math.max(0.2, opts.scale ?? 0.8);
+        const z = opts.z ?? -1.46;
+        const facing = opts.facing ?? (Math.random() < 0.5 ? 1 : -1);
+        const root = k.add([
+          k.pos(opts.x, opts.groundY),
+          k.anchor("bot"),
+          { z },
+        ]);
+        root.scale = k.vec2(facing, 1);
+        let roamMinX = opts.roamMinX ?? opts.x - 40;
+        let roamMaxX = opts.roamMaxX ?? opts.x + 40;
+        const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
+        roamMinX = Math.min(roamMinX, roamMaxX);
+        roamMaxX = Math.max(roamMinX + 1, roamMaxX);
+        let speed = Math.max(1, (opts.speed ?? 16) * s);
+        let dir = root.scale.x >= 0 ? 1 : -1;
+        let state = Math.random() < 0.6 ? "idle" : "walk";
+        let stateTimer =
+          state === "walk"
+            ? 0.8 + Math.random() * 1.2
+            : 1.5 + Math.random() * 2.0;
+        let stepPhase = Math.random() * Math.PI * 2;
+        const brown = k.rgb(152, 108, 72);
+        const white = k.rgb(255, 255, 255);
+        const bodyW = 24 * s,
+          bodyH = 12 * s;
+        const body = root.add([
+          k.rect(bodyW, bodyH, { radius: bodyH * 0.45 }),
+          k.pos(0, -6 * s),
+          k.anchor("center"),
+          k.color(brown),
+        ]);
+        body.add([
+          k.rect(bodyW * 0.75, bodyH * 0.4, { radius: bodyH * 0.25 }),
+          k.pos(0, bodyH * 0.12),
+          k.anchor("center"),
+          k.color(white),
+        ]);
+        const neck = root.add([
+          k.rect(6 * s, 8 * s, { radius: 2 * s }),
+          k.pos(bodyW * 0.36, -bodyH - 2 * s),
+          k.anchor("bot"),
+          k.color(brown),
+          k.rotate(-18),
+        ]);
+        const head = root.add([
+          k.rect(12 * s, 9 * s, { radius: 3 * s }),
+          k.pos(bodyW * 0.52, -bodyH - 9 * s),
+          k.anchor("center"),
+          k.color(brown),
+        ]);
+        head.add([
+          k.circle(1.4 * s),
+          k.pos(3.8 * s, -1.2 * s),
+          k.anchor("center"),
+          k.color(white),
+        ]);
+        head.add([
+          k.rect(2.6 * s, 1.6 * s, { radius: 1 * s }),
+          k.pos(5.2 * s, 1.6 * s),
+          k.anchor("center"),
+          k.color(white),
+        ]);
+        const earL = head.add([
+          k.rect(3.6 * s, 5.4 * s, { radius: 1.4 * s }),
+          k.pos(-3.8 * s, -4.8 * s),
+          k.anchor("center"),
+          k.color(brown),
+          k.rotate(-18),
+        ]);
+        const earR = head.add([
+          k.rect(3.6 * s, 5.4 * s, { radius: 1.4 * s }),
+          k.pos(-0.8 * s, -5.2 * s),
+          k.anchor("center"),
+          k.color(brown),
+          k.rotate(-6),
+        ]);
+        const legW = 3.2 * s,
+          legH = 11 * s,
+          hoofH = Math.max(2, 2.2 * s);
+        const lf = root.add([
+          k.rect(legW, legH, { radius: legW * 0.5 }),
+          k.pos(bodyW * 0.08, 0),
+          k.anchor("bot"),
+          k.color(brown),
+        ]);
+        const lr = root.add([
+          k.rect(legW, legH, { radius: legW * 0.5 }),
+          k.pos(-bodyW * 0.28, 0),
+          k.anchor("bot"),
+          k.color(brown),
+        ]);
+        const lf2 = root.add([
+          k.rect(legW, legH * 0.95, { radius: legW * 0.5 }),
+          k.pos(bodyW * 0.2, 0),
+          k.anchor("bot"),
+          k.color(brown),
+        ]);
+        const lr2 = root.add([
+          k.rect(legW, legH * 0.95, { radius: legW * 0.5 }),
+          k.pos(-bodyW * 0.4, 0),
+          k.anchor("bot"),
+          k.color(brown),
+        ]);
+        lf.add([
+          k.rect(legW * 0.9, hoofH, { radius: hoofH * 0.4 }),
+          k.pos(0, 0),
+          k.anchor("bot"),
+          k.color(white),
+        ]);
+        lr.add([
+          k.rect(legW * 0.9, hoofH, { radius: hoofH * 0.4 }),
+          k.pos(0, 0),
+          k.anchor("bot"),
+          k.color(white),
+        ]);
+        lf2.add([
+          k.rect(legW * 0.9, hoofH, { radius: hoofH * 0.4 }),
+          k.pos(0, 0),
+          k.anchor("bot"),
+          k.color(white),
+        ]);
+        lr2.add([
+          k.rect(legW * 0.9, hoofH, { radius: hoofH * 0.4 }),
+          k.pos(0, 0),
+          k.anchor("bot"),
+          k.color(white),
+        ]);
+        root.add([
+          k.rect(4 * s, 4 * s, { radius: 2 * s }),
+          k.pos(-bodyW * 0.48, -bodyH - 2 * s),
+          k.anchor("center"),
+          k.color(white),
+        ]);
+        k.onUpdate(() => {
+          if (!root.exists()) return;
+          const dt = Math.min(0.05, k.dt());
+          const t = k.time();
+          stateTimer -= dt;
+          if (stateTimer <= 0) {
+            if (state === "idle") {
+              state = Math.random() < 0.4 ? "walk" : "idle";
+              stateTimer =
+                state === "walk"
+                  ? 0.8 + Math.random() * 1.2
+                  : 1.2 + Math.random() * 1.6;
+              const x = root.pos.x;
+              const distL = x - roamMinX;
+              const distR = roamMaxX - x;
+              if (state === "walk") {
+                if (distL < 12) dir = 1;
+                else if (distR < 12) dir = -1;
+                else dir = Math.random() < 0.5 ? 1 : -1;
+              }
+            } else {
+              state = Math.random() < 0.7 ? "idle" : "walk";
+              stateTimer =
+                state === "walk"
+                  ? 0.6 + Math.random() * 1.0
+                  : 1.6 + Math.random() * 2.2;
+            }
+          }
+          if (state === "walk") {
+            const x0 = root.pos.x;
+            const x1 = Math.max(
+              roamMinX,
+              Math.min(roamMaxX, x0 + dir * speed * dt)
+            );
+            root.pos.x = x1;
+            if (x1 <= roamMinX + 0.5) dir = 1;
+            if (x1 >= roamMaxX - 0.5) dir = -1;
+            root.scale = k.vec2(dir, 1);
+            stepPhase += dt * 8;
+          } else {
+            stepPhase += dt * 2;
+          }
+          const baseBob = state === "walk" ? 0.9 * s : 0.6 * s;
+          const bob = Math.sin(stepPhase) * baseBob;
+          head.pos.y = -bodyH - 9 * s + bob;
+          neck.angle = -18 + Math.sin(t * 1.6) * 2;
+          earL.angle = -18 + Math.sin(t * 2.1) * 6;
+          earR.angle = -6 + Math.sin(t * 2.3 + 0.7) * 6;
+          const amp = state === "walk" ? 2.0 * s : 0.6 * s;
+          const swingF = Math.sin(stepPhase) * amp;
+          const swingB = Math.sin(stepPhase + Math.PI) * (amp * 0.8);
+          lf.pos.y = swingF * 0.5;
+          lf2.pos.y = -swingF * 0.5;
+          lr.pos.y = swingB * 0.4;
+          lr2.pos.y = -swingB * 0.4;
+        });
+        return {
+          root,
+          setRoamBounds: (minX, maxX) => {
+            roamMinX = Math.min(minX, maxX);
+            roamMaxX = Math.max(minX, maxX);
+          },
+        };
+      }
+
+      // ------------------------------
+      // Obstacles generation
+      // ------------------------------
+      function createObstacleState(seed = Math.random() * 1e9) {
+        let x = seed | 0 || 123456789;
+        const rng = () => {
+          x ^= x << 13;
+          x ^= x >>> 17;
+          x ^= x << 5;
+          return ((x >>> 0) % 100000) / 100000;
+        };
+        return { rng };
+      }
+
+      function nextObstacle(score, lastSide, sameSideRun, rng) {
+        let side = rng() < 0.5 ? "left" : "right";
+        if (lastSide && sameSideRun >= GAME_CONFIG.obstacles.maxSameSideInRow)
+          side = lastSide === "left" ? "right" : "left";
+        const eitherAllowed = rng() < GAME_CONFIG.obstacles.dualHoldChance;
+        const newRun = lastSide === side ? sameSideRun + 1 : 1;
+        return { side, newRun, newLast: side, eitherAllowed };
+      }
+
+      function generateHoldSpec(rng) {
+        const rect = rng() < 0.5;
+        const color =
+          rng() < 0.33
+            ? [176, 170, 162]
+            : rng() < 0.66
+            ? [160, 154, 148]
+            : [188, 180, 172];
+        return rect
+          ? {
+              kind: "rect",
+              w: 14 + Math.floor(rng() * 6),
+              h: 6 + Math.floor(rng() * 3),
+              rotDeg: (rng() - 0.5) * 15,
+              offsetX: (rng() - 0.5) * 10,
+              offsetYRatio: (rng() - 0.5) * 0.2,
+              color,
+            }
+          : {
+              kind: "circle",
+              r: 5 + Math.floor(rng() * 3),
+              rotDeg: 0,
+              offsetX: (rng() - 0.5) * 10,
+              offsetYRatio: (rng() - 0.5) * 0.2,
+              color,
+            };
+      }
+
+      function populateHoldsForSegment(seg, rng) {
+        const allowed = seg.side ? [seg.side] : ["left", "right"];
+        seg.holds = seg.holds ?? {};
+        for (const s of allowed) {
+          const spec = generateHoldSpec(rng);
+          spec.offsetYRatio = -0.25 + (rng() - 0.5) * 0.1;
+          spec.offsetX = (rng() - 0.5) * 8;
+          seg.holds[s] = spec;
+        }
+      }
+
+      function seedInitialSegments(count, rng) {
+        const segs = [];
+        let last = null;
+        let run = 0;
+        for (let i = 0; i < count; i++) {
+          const n = nextObstacle(0, last, run, rng);
+          const seg = { side: n.side };
+          seg.eitherAllowed = n.eitherAllowed;
+          populateHoldsForSegment(seg, rng);
+          segs.push(seg);
+          last = n.newLast;
+          run = n.newRun;
+        }
+        if (segs.length > 0) {
+          segs[0] = { ...segs[0], side: null, holds: {} };
+        }
+        return segs;
+      }
+
+      // ------------------------------
+      // HUD
+      // ------------------------------
+      function createHud(k) {
+        const padding = 10;
+        const scoreSize = Math.round(36 * (GAME_CONFIG.uiScale ?? 1) * 1.1);
+        const scoreX = Math.floor(k.width() / 2);
+        const scoreY = 12;
+        const scoreOutlineOffsets = [
+          [-2, 0],
+          [2, 0],
+          [0, -2],
+          [0, 2],
+          [-1, -1],
+          [1, -1],
+          [-1, 1],
+          [1, 1],
+        ];
+        for (const [ox, oy] of scoreOutlineOffsets) {
+          k.add([
+            k.text("0", { size: scoreSize, font: "sink" }),
+            k.pos(scoreX + ox, scoreY + oy),
+            k.anchor("top"),
+            k.z(4001),
+            k.color(0, 0, 0),
+            { _scoreOutline: true },
+          ]);
+        }
+        const scoreText = k.add([
+          k.text("0", { size: scoreSize, font: "sink", letterSpacing: 1 }),
+          k.pos(scoreX, scoreY),
+          k.anchor("top"),
+          k.z(4002),
+          k.color(255, 255, 255),
+        ]);
+        const fullWidth = k.width() - padding * 2;
+        const barWidth = Math.floor(fullWidth * 0.85 * 0.7);
+        const barHeight = Math.floor(10 * 1.5);
+        const bgX = Math.floor((k.width() - barWidth) / 2);
+        const bg = k.add([
+          k.rect(barWidth, barHeight),
+          k.pos(bgX, padding + 52),
+          k.color(255, 255, 255),
+          k.opacity(0.12),
+          k.z(4000),
+        ]);
+        const timeBar = k.add([
+          k.rect(barWidth, barHeight),
+          k.pos(bgX, padding + 52),
+          k.color(80, 200, 120),
+          k.z(4001),
+          { fullWidth: barWidth },
+        ]);
+        function setTime(t) {
+          const frac = Math.max(
+            0,
+            Math.min(1, t / GAME_CONFIG.timeBar.maxSeconds)
+          );
+          timeBar.width = timeBar.fullWidth * frac;
+          const danger = frac < GAME_CONFIG.timeBar.dangerThreshold;
+          timeBar.color = danger ? k.rgb(230, 70, 70) : k.rgb(80, 200, 120);
+        }
+        function setScore(score, best) {
+          const outlines = (k.get("text") || []).filter((t) => t._scoreOutline);
+          for (const o of outlines) o.text = String(score);
+          if (scoreText) scoreText.text = `${score}`;
+        }
+        return { setScore, setTime };
+      }
+
+      // ------------------------------
+      // Scenes: Menu
+      // ------------------------------
+      function defineMenuScene(k) {
+        k.scene("menu", () => {
+          function createCircleButton(label, x, y, radius, z, onClick) {
+            const root = k.add([k.pos(x, y), k.anchor("center"), k.z(z)]);
+            const baseCol = k.rgb(56, 60, 66);
+            const hoverCol = k.rgb(76, 82, 90);
+            const ring = root.add([
+              k.circle(radius),
+              k.color(baseCol),
+              k.opacity(0.9),
+              k.area(),
+            ]);
+            const size = Math.round(radius * 1.15 * (GAME_CONFIG.uiScale ?? 1));
+            root.add([
+              k.text(label, { size, width: radius * 2, align: "center" }),
+              k.anchor("center"),
+              k.color(240, 244, 248),
+            ]);
+            ring.onClick?.(onClick);
+            ring.onHover?.(() => {
+              ring.color = hoverCol;
+            });
+            ring.onHoverEnd?.(() => {
+              ring.color = baseCol;
+            });
+            return { root };
+          }
+
+          // Nicer glossy play button with pulse ripple
+          function createPlayButton(x, y, radius, z, onClick) {
+            const root = k.add([k.pos(x, y), k.anchor("center"), k.z(z)]);
+            const baseCol = k.rgb(28, 120, 200);
+            const hoverCol = k.rgb(46, 140, 225);
+            // Clickable ring
+            const ring = root.add([
+              k.circle(radius),
+              k.color(baseCol),
+              k.opacity(0.92),
+              k.area(),
+            ]);
+            // Glassy inner circles
+            root.add([
+              k.circle(Math.max(1, radius * 0.82)),
+              k.color(255, 255, 255),
+              k.opacity(0.1),
+            ]);
+            root.add([
+              k.circle(Math.max(1, radius * 0.64)),
+              k.color(255, 255, 255),
+              k.opacity(0.06),
+            ]);
+            // Soft outer halo
+            const halo = root.add([
+              k.circle(radius + 6),
+              k.color(28, 120, 200),
+              k.opacity(0.15),
+            ]);
+            halo.z = (root.z ?? 0) - 0.01;
+            // Icon root for press animation
+            const iconRoot = root.add([k.pos(3, 0), k.anchor("center")]);
+            const size = Math.round(radius * 1.28 * (GAME_CONFIG.uiScale ?? 1));
+            const outline = [
+              [-2, 0],
+              [2, 0],
+              [0, -2],
+              [0, 2],
+              [-1, -1],
+              [1, -1],
+              [-1, 1],
+              [1, 1],
+            ];
+            for (const [ox, oy] of outline) {
+              iconRoot.add([
+                k.text("▶", { size }),
+                k.pos(ox, oy),
+                k.anchor("center"),
+                k.color(0, 0, 0),
+                k.opacity(0.35),
+              ]);
+            }
+            const icon = iconRoot.add([
+              k.text("▶", { size }),
+              k.anchor("center"),
+              k.color(255, 255, 255),
+            ]);
+            // Gentle pulse ripple
+            const pulse = root.add([
+              k.circle(radius),
+              k.color(255, 255, 255),
+              k.opacity(0.0),
+            ]);
+            let pulseT = 0;
+            k.onUpdate(() => {
+              if (!root.exists()) return;
+              pulseT += k.dt();
+              const period = 1.4;
+              const p = (pulseT % period) / period; // 0..1
+              const s = 1 + p * 0.55;
+              pulse.scale = k.vec2(s, s);
+              pulse.opacity = 0.18 * (1 - p);
+            });
+            // Interactions
+            ring.onClick?.(() => {
+              // press pop
+              const from = iconRoot.scale?.x ?? 1;
+              k.tween(
+                from,
+                0.92,
+                0.08,
+                (v) => (iconRoot.scale = k.vec2(v, v)),
+                k.easings.easeOutCubic
+              ).then?.(() =>
+                k.tween(
+                  iconRoot.scale.x,
+                  1,
+                  0.12,
+                  (v) => (iconRoot.scale = k.vec2(v, v)),
+                  k.easings.easeOutCubic
+                )
+              );
+              onClick?.();
+            });
+            ring.onHover?.(() => {
+              ring.color = hoverCol;
+            });
+            ring.onHoverEnd?.(() => {
+              ring.color = baseCol;
+            });
+            return { root };
+          }
+          hideMobileControls();
+          const viewW = k.width();
+          const viewH = k.height();
+          const wallCenterX = viewW / 2;
+          const horizonY = viewH * 0.88 - 8;
+          const seed = Math.floor(Math.random() * 1e9);
+          window.__mountSeed = seed;
+          const mountains = addMountains(k, { horizon: horizonY, seed });
+          mountains.setAutoDrift(false);
+          spawnBackground(k, k.vec2(viewW, viewH), {
+            treeClip: { centerX: wallCenterX, width: GAME_CONFIG.wall.width },
+            treeScale: 1.35,
+            treeDensityMul: 0.35,
+            horizonLevel: horizonY,
+            trunkHeightMul: 1.4,
+          });
+          (function addExtraTrees() {
+            const treeBaseY = horizonY + 8;
+            const wallMinX = wallCenterX - GAME_CONFIG.wall.width / 2;
+            const wallMaxX = wallCenterX + GAME_CONFIG.wall.width / 2;
+            const leftRange = { min: 10, max: Math.max(20, wallMinX - 12) };
+            const rightRange = {
+              min: Math.min(viewW - 20, wallMaxX + 12),
+              max: viewW - 10,
+            };
+            const green = (i) => k.rgb(44 + i * 6, 118 + i * 4, 82);
+            function addExtraTree(x, scale, variant, heightMul = 1) {
+              k.add([
+                k.rect(5 * scale, 18 * scale * heightMul, { radius: 2 }),
+                k.pos(x, treeBaseY),
+                k.anchor("bot"),
+                k.color(84, 60, 44),
+                { z: -1.5 },
+              ]);
+              if (variant === "round") {
+                const blobCount = 3 + Math.floor(Math.random() * 3);
+                const baseR = 10 * scale * (0.9 + 0.4 * (heightMul - 1));
+                for (let i = 0; i < blobCount; i++) {
+                  const r = baseR * (0.85 + Math.random() * 0.5);
+                  const ox = (Math.random() * 14 - 7) * scale;
+                  const oy =
+                    18 * scale * heightMul + (Math.random() * 6 - 8) * scale;
+                  k.add([
+                    k.circle(r),
+                    k.pos(x + ox, treeBaseY - oy),
+                    k.anchor("center"),
+                    k.color(green(i)),
+                    { z: -1.45 },
+                  ]);
+                }
+                k.add([
+                  k.circle(Math.max(1, baseR * 0.5)),
+                  k.pos(
+                    x + 6 * scale,
+                    treeBaseY - (18 * scale * heightMul + 6 * scale)
+                  ),
+                  k.anchor("center"),
+                  k.color(255, 255, 255),
+                  k.opacity(0.06),
+                  { z: -1.44 },
+                ]);
+              } else {
+                const stripes = 5;
+                for (let sIdx = 0; sIdx < stripes; sIdx++) {
+                  const frac = (sIdx + 1) / stripes;
+                  const wobble = Math.sin(frac * Math.PI) * 2 * scale;
+                  const w = 20 * scale * (0.4 + frac * 0.75);
+                  const h = 5 * scale * heightMul;
+                  const y =
+                    treeBaseY - 18 * scale * heightMul - sIdx * h + 2 * scale;
+                  k.add([
+                    k.rect(w, h, { radius: 3 }),
+                    k.pos(x + wobble * (Math.random() - 0.5), y),
+                    k.anchor("center"),
+                    k.color(green(sIdx)),
+                    { z: -1.45 },
+                  ]);
+                }
+              }
+            }
+            function sampleXs(min, max, count) {
+              const out = [];
+              if (max - min < 10 || count <= 0) return out;
+              const step = (max - min) / (count + 1);
+              for (let i = 1; i <= count; i++) {
+                const base = min + i * step;
+                out.push(base + (Math.random() * 2 - 1) * step * 0.35);
+              }
+              return out;
+            }
+            const xsLeft = sampleXs(leftRange.min, leftRange.max, 2);
+            const xsRight = sampleXs(rightRange.min, rightRange.max, 3);
+            const xs = [...xsLeft, ...xsRight].slice(0, 5);
+            const variants = ["round", "cone", "round", "cone", "round"];
+            for (let i = 0; i < xs.length; i++) {
+              const x = xs[i];
+              const sc = (Math.random() * 0.5 + 1.1) * 1.0;
+              const hMul = 0.9 + Math.random() * 0.6;
+              addExtraTree(x, sc, variants[i % variants.length], hMul);
+            }
+          })();
+          const bandH = Math.floor(viewH / 7);
+          spawnRockWall(k, wallCenterX, viewH, GAME_CONFIG.wall.width, bandH);
+          const baseScale = 1.8 * 1.1;
+          const startScale = baseScale * 1.3;
+          const s = startScale;
+          const bodyH = 30 * s;
+          const footStack = bodyH / 2 + 34 * s;
+          const platformTopY = viewH - 110;
+          const heroBaseY = platformTopY - footStack;
+          const hero = spawnClimber(k, wallCenterX, heroBaseY, startScale, {
+            showRope: false,
+          });
+          try {
+            hero.hair.z = 12;
+          } catch {}
+          const sprayCans = [];
+          (function placeSprayCansOnFloor() {
+            const canZ = 5.5;
+            const scaleFloor = (14 * s) / 22;
+            const halfH = (22 * scaleFloor) / 2;
+            const offsets = [-60 * s, -45 * s];
+            for (const off of offsets) {
+              const wrapper = k.add([
+                k.pos(wallCenterX + off, platformTopY),
+                k.anchor("bot"),
+                { z: canZ, _isCan: true },
+              ]);
+              spawnSprayCan(
+                k,
+                wrapper,
+                0,
+                -halfH,
+                "right",
+                scaleFloor,
+                canZ + 0.01,
+                { bodyColor: k.rgb(28, 120, 200) }
+              );
+              sprayCans.push(wrapper);
+            }
+          })();
+          function pickupAndSpray() {
+            if (!sprayCans.length) return;
+            isActing = true;
+            const hx = hero.root.pos.x;
+            let nearest = sprayCans[0];
+            let best = Math.abs(hx - nearest.pos.x);
+            for (const c of sprayCans) {
+              const d = Math.abs(hx - c.pos.x);
+              if (d < best) {
+                nearest = c;
+                best = d;
+              }
+            }
+            nearest.hidden = true;
+            const arm = hero.armRight;
+            const canZ = 12.6;
+            const handY = -28 * s;
+            const tempRoot = arm.add([
+              k.pos(0, handY),
+              k.anchor("top"),
+              { z: canZ },
+            ]);
+            // Keep shoulder baseline consistent only while holding the can
+            k.onUpdate(() => {
+              if (!tempRoot.exists?.()) return;
+              const breathe = Math.sin(Math.PI * k.time());
+              const breathOffset = breathe * 2 * 1.1;
+              const rp = hero.root.pos;
+              // Align with gameplay baseline (slightly below torso top)
+              const armsBaseY = rp.y + breathOffset - bodyH / 2 - 2 * s;
+              hero.armLeft.pos.y = armsBaseY - (hero.armReachLeft ?? 0);
+              hero.armRight.pos.y = armsBaseY - (hero.armReachRight ?? 0);
+            });
+            const scaleHand = (14 * s) / 22;
+            const halfHHand = (22 * scaleHand) / 2;
+            const canRoot = spawnSprayCan(
+              k,
+              tempRoot,
+              0,
+              halfHHand,
+              "right",
+              scaleHand,
+              canZ + 0.01,
+              { bodyColor: k.rgb(28, 120, 200) }
+            );
+            const uprightStrength = 0.9;
+            k.onUpdate(() => {
+              if (!canRoot.exists?.() || !tempRoot.exists?.()) return;
+              const a = arm.angle ?? 0;
+              canRoot.angle = -a * uprightStrength;
+            });
+            const nozzleAnchor = canRoot._nozzleAnchor;
+            const tiltFrom = arm.angle ?? 170;
+            const tiltTo = 140;
+            k.tween(
+              tiltFrom,
+              tiltTo,
+              0.8,
+              (v) => (arm.angle = v),
+              k.easings.easeOutCubic
+            ).then?.(() => {
+              const emitBurst = () => {
+                const burstCount = 10;
+                for (let i = 0; i < burstCount; i++) {
+                  const speed = 90 + Math.random() * 90;
+                  const life = 1.0 + Math.random() * 0.6;
+                  const aDeg = canRoot.angle ?? 0;
+                  const aRad = (aDeg * Math.PI) / 180;
+                  const lx = nozzleAnchor.pos.x;
+                  const ly = nozzleAnchor.pos.y;
+                  const cx = canRoot.pos.x;
+                  const cy = canRoot.pos.y;
+                  const wx = cx + lx * Math.cos(aRad) - ly * Math.sin(aRad);
+                  const wy = cy + lx * Math.sin(aRad) + ly * Math.cos(aRad);
+                  const len = Math.max(1e-3, Math.hypot(lx, ly));
+                  const uxLocal = lx / len;
+                  const uyLocal = ly / len;
+                  let ux = uxLocal * Math.cos(aRad) - uyLocal * Math.sin(aRad);
+                  let uy = uxLocal * Math.sin(aRad) + uyLocal * Math.cos(aRad);
+                  const biasRad = (50 * Math.PI) / 180;
+                  const jitterRad =
+                    ((Math.random() * 16 - 8) * Math.PI) / 180 + biasRad;
+                  const cosj = Math.cos(jitterRad),
+                    sinj = Math.sin(jitterRad);
+                  const jx = ux * cosj - uy * sinj;
+                  const jy = ux * sinj + uy * cosj;
+                  const p = tempRoot.add([
+                    k.rect(3, 2, { radius: 1 }),
+                    k.pos(wx, wy),
+                    k.anchor("center"),
+                    k.color(240, 244, 248),
+                    k.opacity(0.9),
+                    { vx: jx * speed, vy: jy * speed, t: 0, life },
+                  ]);
+                  k.onUpdate(() => {
+                    if (!p.exists()) return;
+                    p.t += k.dt();
+                    p.pos.x += p.vx * k.dt();
+                    p.pos.y += p.vy * k.dt();
+                    p.opacity = Math.max(0, 0.9 * (1 - p.t / life));
+                    if (p.t >= life) p.destroy();
+                  });
+                }
+              };
+              const sprayWindow = 1.4;
+              for (let a = 0; a <= sprayWindow; a += 0.2) {
+                k.wait(a, emitBurst);
+              }
+              k.wait(sprayWindow, () => {
+                k.tween(
+                  arm.angle ?? tiltTo,
+                  170,
+                  0.8,
+                  (v) => (arm.angle = v),
+                  k.easings.easeInCubic
+                ).then?.(() => {
+                  tempRoot.destroy();
+                  nearest.hidden = false;
+                  isActing = false;
+                  scheduleNext();
+                });
+              });
+            });
+          }
+          let isActing = false;
+          let cooldown = 1.5 + Math.random() * 1.5;
+          const scheduleNext = () => {
+            cooldown = 2 + Math.random() * 3;
+          };
+          const easings = k.easings;
+          const neutralPose = () => {
+            const rp = hero.root.pos;
+            const armsBaseY = rp.y - bodyH / 2 + 2 * s;
+            hero.armLeft.pos = k.vec2(rp.x - 11 * s, armsBaseY);
+            hero.armRight.pos = k.vec2(rp.x + 11 * s, armsBaseY);
+            hero.armLeft.angle = 190;
+            hero.armRight.angle = 170;
+            hero.head.angle = 0;
+            hero.hair.angle = 0;
+            hero.body.angle = 0;
+          };
+          function waveOnce(side) {
+            isActing = true;
+            const arm = side === "left" ? hero.armLeft : hero.armRight;
+            const rp = hero.root.pos;
+            const yBase = rp.y - bodyH / 2 + 4 * s;
+            const xOff = side === "left" ? -11 * s : 11 * s;
+            const raiseA = side === "left" ? -20 : 20;
+            const highA = side === "left" ? -50 : 50;
+            (side === "left" ? hero.armLeft : hero.armRight).pos = k.vec2(
+              rp.x + xOff,
+              yBase - 6 * s
+            );
+            const fromA = arm.angle ?? (side === "left" ? 190 : 170);
+            k.tween(
+              fromA,
+              raiseA,
+              0.18,
+              (v) => (arm.angle = v),
+              easings.easeOutCubic
+            ).then?.(() => {
+              k.tween(
+                arm.angle ?? raiseA,
+                highA,
+                0.16,
+                (v) => (arm.angle = v),
+                easings.easeInOutSine
+              ).then?.(() => {
+                k.tween(
+                  arm.angle ?? highA,
+                  raiseA,
+                  0.16,
+                  (v) => (arm.angle = v),
+                  easings.easeInOutSine
+                ).then?.(() => {
+                  k.tween(
+                    arm.angle ?? raiseA,
+                    side === "left" ? 190 : 170,
+                    0.18,
+                    (v) => (arm.angle = v),
+                    easings.easeInCubic
+                  ).then?.(() => {
+                    isActing = false;
+                    scheduleNext();
+                  });
+                });
+              });
+            });
+          }
+          function stepSide(dir) {
+            isActing = true;
+            const x0 = hero.root.pos.x;
+            const x1 = x0 + dir * 18 * s;
+            const half = 0.34;
+            k.tween(
+              x0,
+              x1,
+              half,
+              (v) => (hero.root.pos.x = v),
+              easings.easeInOutSine
+            ).then?.(() => {
+              k.tween(
+                x1,
+                x0,
+                half,
+                (v) => (hero.root.pos.x = v),
+                easings.easeInOutSine
+              ).then?.(() => {
+                isActing = false;
+                scheduleNext();
+              });
+            });
+            const angL0 = hero.legLeft.angle ?? 0;
+            const angR0 = hero.legRight.angle ?? 0;
+            const swing = 12 * dir;
+            const swingBack = -12 * dir;
+            k.tween(
+              angL0,
+              swing,
+              half,
+              (v) => (hero.legLeft.angle = v),
+              easings.easeInOutSine
+            ).then?.(() =>
+              k.tween(
+                hero.legLeft.angle ?? swing,
+                0,
+                half,
+                (v) => (hero.legLeft.angle = v),
+                easings.easeInOutSine
+              )
+            );
+            k.tween(
+              angR0,
+              swingBack,
+              half,
+              (v) => (hero.legRight.angle = v),
+              easings.easeInOutSine
+            ).then?.(() =>
+              k.tween(
+                hero.legRight.angle ?? swingBack,
+                0,
+                half,
+                (v) => (hero.legRight.angle = v),
+                easings.easeInOutSine
+              )
+            );
+          }
+          function adjustLegs() {
+            isActing = true;
+            const l0 = hero.legLeft.angle ?? 0;
+            const r0 = hero.legRight.angle ?? 0;
+            k.tween(
+              l0,
+              l0 + 8,
+              0.18,
+              (v) => (hero.legLeft.angle = v),
+              easings.easeOutSine
+            ).then?.(() =>
+              k.tween(
+                hero.legLeft.angle ?? 0,
+                0,
+                0.22,
+                (v) => (hero.legLeft.angle = v),
+                easings.easeInOutSine
+              )
+            );
+            k.tween(
+              r0,
+              r0 - 8,
+              0.18,
+              (v) => (hero.legRight.angle = v),
+              easings.easeOutSine
+            ).then?.(() =>
+              k
+                .tween(
+                  hero.legRight.angle ?? 0,
+                  0,
+                  0.22,
+                  (v) => (hero.legRight.angle = v),
+                  easings.easeInOutSine
+                )
+                .then?.(() => {
+                  isActing = false;
+                  scheduleNext();
+                })
+            );
+          }
+          function maybeDoIdleAction(dt) {
+            if (isActing) return;
+            cooldown -= dt;
+            if (cooldown > 0) return;
+            const r = Math.random();
+            if (r < 0.35) waveOnce(Math.random() < 0.5 ? "right" : "left");
+            else if (r < 0.6) stepSide(Math.random() < 0.5 ? -1 : 1);
+            else if (r < 0.8) adjustLegs();
+            else pickupAndSpray();
+          }
+          k.onUpdate(() => {
+            if (!isActing) neutralPose();
+            maybeDoIdleAction(k.dt());
+            const rp = hero.root.pos;
+            const legTopL = { x: rp.x - 7 * s, y: rp.y + bodyH / 2 };
+            const legTopR = { x: rp.x + 7 * s, y: rp.y + bodyH / 2 };
+            const len = 28 * s;
+            const rad = (d) => (d * Math.PI) / 180;
+            const aL = hero.legLeft.angle ?? 0;
+            const aR = hero.legRight.angle ?? 0;
+            hero.footLeft.pos = k.vec2(
+              legTopL.x + Math.sin(rad(aL)) * len,
+              legTopL.y + Math.cos(rad(aL)) * len
+            );
+            hero.footRight.pos = k.vec2(
+              legTopR.x + Math.sin(rad(aR)) * len,
+              legTopR.y + Math.cos(rad(aR)) * len
+            );
+            hero.footLeft.angle = aL;
+            hero.footRight.angle = aR;
+          });
+          const platformZ = 4.5;
+          const ledgeWidth = Math.min(viewW * 0.72, 420);
+          const ledgeHeight = Math.max(30, Math.floor(viewH * 0.08));
+          const ledgeY = platformTopY + ledgeHeight / 2;
+          k.add([
+            k.rect(ledgeWidth, ledgeHeight, { radius: 10 }),
+            k.pos(viewW / 2, ledgeY),
+            k.anchor("center"),
+            k.color(88, 72, 64),
+            { z: platformZ },
+          ]);
+          k.add([
+            k.rect(ledgeWidth * 0.75, ledgeHeight * 0.7, { radius: 10 }),
+            k.pos(viewW / 2 - ledgeWidth * 0.12, ledgeY + ledgeHeight * 0.08),
+            k.anchor("center"),
+            k.color(74, 60, 54),
+            { z: platformZ + 0.01 },
+          ]);
+          k.add([
+            k.rect(ledgeWidth * 0.46, ledgeHeight * 0.5, { radius: 8 }),
+            k.pos(viewW / 2 + ledgeWidth * 0.08, ledgeY + ledgeHeight * 0.25),
+            k.anchor("center"),
+            k.color(64, 50, 45),
+            { z: platformZ + 0.02 },
+          ]);
+          const fgZ = platformZ + 0.05;
+          const addGrassPatch = (x, y, count, scaleMul = 1) => {
+            for (let i = 0; i < count; i++) {
+              const sBlade = (0.9 + Math.random() * 0.6) * s * scaleMul;
+              const h = 10 * sBlade + Math.random() * 10 * sBlade;
+              const w = 2 * Math.max(0.8, Math.random()) * (sBlade * 0.5);
+              const ox = (Math.random() * 16 - 8) * s * 0.6;
+              const tilt = Math.random() * 20 - 10;
+              const blade = k.add([
+                k.rect(w, h, { radius: 1 }),
+                k.pos(x + ox, y),
+                k.anchor("bot"),
+                k.color(
+                  68 + Math.random() * 20,
+                  130 + Math.random() * 30,
+                  80 + Math.random() * 15
+                ),
+                k.z(fgZ),
+                k.rotate(tilt),
+              ]);
+              blade.add([
+                k.rect(w * 0.7, 1),
+                k.pos(0, -h * 0.6),
+                k.anchor("center"),
+                k.color(255, 255, 255),
+                k.opacity(0.06),
+              ]);
+            }
+          };
+          const addFlower = (x, y, hue, scaleMul = 1) => {
+            const stemH = 14 * s * scaleMul;
+            const stem = k.add([
+              k.rect(2, stemH, { radius: 1 }),
+              k.pos(x, y),
+              k.anchor("bot"),
+              k.color(70, 140, 86),
+              k.z(fgZ + 0.01),
+            ]);
+            const petalR = 3.5 * s * scaleMul;
+            const col =
+              hue === "red"
+                ? k.rgb(220, 70, 70)
+                : hue === "yellow"
+                ? k.rgb(240, 210, 72)
+                : k.rgb(90, 150, 230);
+            stem.add([
+              k.circle(petalR),
+              k.pos(0, -stemH),
+              k.anchor("center"),
+              k.color(col),
+              k.z(fgZ + 0.02),
+            ]);
+            stem.add([
+              k.circle(petalR * 0.45),
+              k.pos(0, -stemH),
+              k.anchor("center"),
+              k.color(255, 230, 140),
+              k.z(fgZ + 0.03),
+            ]);
+          };
+          const leftEdge = viewW / 2 - ledgeWidth / 2;
+          const rightEdge = viewW / 2 + ledgeWidth / 2;
+          const topY = platformTopY;
+          addGrassPatch(leftEdge + 28, topY, 8, 0.9);
+          addGrassPatch(leftEdge + 80, topY, 6, 0.8);
+          addGrassPatch(rightEdge - 28, topY, 8, 0.9);
+          addGrassPatch(rightEdge - 80, topY, 6, 0.8);
+          addFlower(leftEdge + 42, topY, "yellow");
+          addFlower(leftEdge + 92, topY, "red", 1.1);
+          addFlower(rightEdge - 42, topY, "blue");
+          addFlower(rightEdge - 92, topY, "yellow", 1.1);
+          (function addMenuDog() {
+            const hx = hero.root.pos.x;
+            const margin = 16 * s;
+            let roamMin = Math.max(hx + 24 * s, viewW / 2 + margin);
+            let roamMax = rightEdge - margin;
+            if (roamMax - roamMin < 24) {
+              roamMin = Math.max(leftEdge + ledgeWidth * 0.6, rightEdge - 60);
+              roamMax = rightEdge - margin;
+            }
+            const startX = (roamMin + roamMax) / 2;
+            const band = Math.max(20, (roamMax - roamMin) * 0.25);
+            roamMin = Math.max(roamMin, startX - band * 0.5);
+            roamMax = Math.min(roamMax, startX + band * 0.5);
+            spawnMalteseDog(k, {
+              x: startX,
+              groundY: platformTopY,
+              z: platformZ + 0.8,
+              scale: 0.9 * 2.2,
+              roamMinX: roamMin,
+              roamMaxX: roamMax,
+            });
+          })();
+          const eyeCol = k.rgb(30, 30, 30);
+          const eyeSize = 3 * s;
+          const mouthW = 7 * s;
+          const mouthH = 2 * s;
+          hero.head.add([
+            k.rect(eyeSize, eyeSize, { radius: 1 * s }),
+            k.pos(-3 * s, -2 * s),
+            k.anchor("center"),
+            k.color(eyeCol),
+            k.z(13.5),
+          ]);
+          hero.head.add([
+            k.rect(eyeSize, eyeSize, { radius: 1 * s }),
+            k.pos(3 * s, -2 * s),
+            k.anchor("center"),
+            k.color(eyeCol),
+            k.z(13.5),
+          ]);
+          hero.head.add([
+            k.rect(mouthW, mouthH, { radius: 1 * s }),
+            k.pos(0, 4 * s),
+            k.anchor("center"),
+            k.color(60, 40, 40),
+            k.z(13.6),
+          ]);
+          (async () => {
+            const candidates = [
+              "/assets/betaspray.png",
+              "/assets/betaspray.webp",
+              "/assets/logo.png",
+              "/assets/logo.webp",
+            ];
+            const probe = (src) =>
+              new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => resolve(true);
+                img.onerror = () => resolve(false);
+                img.src = src;
+              });
+            let chosen = null;
+            for (const p of candidates) {
+              const ok = await probe(p);
+              if (ok) {
+                chosen = p;
+                break;
+              }
+            }
+            if (chosen) {
+              try {
+                await k.loadSprite("menu_logo", chosen);
+                const logo = k.add([
+                  k.sprite("menu_logo"),
+                  k.pos(viewW / 2, viewH * 0.18),
+                  k.anchor("center"),
+                  k.z(2000),
+                ]);
+                const desired = viewW * 0.8;
+                const w = logo.width ?? desired;
+                const s = Math.min(1.0, desired / w);
+                logo.scale = s;
+              } catch {}
+            }
+          })();
+          const titleStr = "betaspray";
+          const baseY = viewH * 0.18;
+          const size = Math.round(64 * (GAME_CONFIG.uiScale ?? 1));
+          const letterSpacing = Math.round(size * 0.12);
+          const blue = k.rgb(28, 120, 200);
+          const letters = [];
+          function addOutlinedLetter(ch) {
+            const root = k.add([k.pos(0, 0), k.anchor("center"), k.z(2001)]);
+            const outlineOffsets = [
+              [-2, 0],
+              [2, 0],
+              [0, -2],
+              [0, 2],
+              [-2, -2],
+              [2, -2],
+              [-2, 2],
+              [2, 2],
+            ];
+            for (const [ox, oy] of outlineOffsets) {
+              root.add([
+                k.text(ch, { size }),
+                k.pos(ox, oy),
+                k.anchor("center"),
+                k.color(255, 255, 255),
+              ]);
+            }
+            const main = root.add([
+              k.text(ch, { size }),
+              k.anchor("center"),
+              k.color(blue),
+            ]);
+            return { root, main };
+          }
+          let totalWidth = 0;
+          const advances = [];
+          for (const ch of titleStr) {
+            const l = addOutlinedLetter(ch);
+            letters.push(l);
+            const w = l.main.width ?? size * 0.6;
+            const adv = w + letterSpacing;
+            advances.push(adv);
+            totalWidth += adv;
+          }
+          const startX = viewW / 2 - totalWidth / 2;
+          let xx = startX;
+          letters.forEach((l, i) => {
+            const adv = advances[i];
+            l.root.pos = k.vec2(xx + adv / 2, baseY);
+            xx += adv;
+          });
+          k.onUpdate(() => {
+            const t = k.time();
+            letters.forEach((l, i) => {
+              l.root.pos.y = baseY + Math.sin(t * 3 + i * 0.5) * (size * 0.08);
+            });
+          });
+          k.add([
+            k.rect(viewW * 0.92, 66, { radius: 20 }),
+            k.pos(viewW / 2, viewH - 36),
+            k.anchor("center"),
+            k.color(60, 50, 46),
+            k.opacity(0.95),
+            k.z(1999),
+          ]);
+          k.add([
+            k.text("Tap Space/Enter to Start", {
+              size: 28,
+              width: viewW - 40,
+              align: "center",
+            }),
+            k.pos(viewW / 2, viewH - 40),
+            k.anchor("center"),
+            k.color(255, 255, 255),
+            k.z(2000),
+          ]);
+
+          // Settings gear (top-right) with centered panel
+          (function setupSettings() {
+            const topY = 44;
+            const gearRoot = k.add([
+              k.pos(viewW - 85, topY),
+              k.anchor("center"),
+              k.z(2100),
+            ]);
+            const radius = 32;
+            const baseCol = k.rgb(56, 60, 66);
+            const hoverCol = k.rgb(76, 82, 90);
+            const bg = gearRoot.add([
+              k.circle(radius + 6),
+              k.color(baseCol),
+              k.opacity(0.85),
+              k.area(),
+            ]);
+            const iconCol = k.rgb(240, 244, 248);
+            const wrench = gearRoot.add([k.pos(0, 0), k.anchor("center")]);
+            wrench.add([
+              k.rect(radius * 1.8, radius * 0.38, {
+                radius: Math.max(2, radius * 0.18),
+              }),
+              k.anchor("center"),
+              k.color(iconCol),
+              k.rotate(-25),
+            ]);
+            const socket = wrench.add([
+              k.circle(radius * 0.55),
+              k.pos(-radius * 0.85, 0),
+              k.anchor("center"),
+              k.color(iconCol),
+            ]);
+            socket.add([
+              k.circle(radius * 0.28),
+              k.anchor("center"),
+              k.color(baseCol),
+            ]);
+            const jaw = wrench.add([
+              k.circle(radius * 0.48),
+              k.pos(radius * 0.85, 0),
+              k.anchor("center"),
+              k.color(iconCol),
+            ]);
+            jaw.add([
+              k.circle(radius * 0.36),
+              k.pos(radius * 0.18, -radius * 0.06),
+              k.anchor("center"),
+              k.color(baseCol),
+            ]);
+
+            let panel = null;
+            const showPanel = () => {
+              if (panel?.exists?.()) return;
+              const pW = Math.min(380, viewW * 0.9);
+              const pH = 220;
+              panel = k.add([
+                k.pos(viewW / 2, viewH / 2),
+                k.anchor("center"),
+                k.z(2200),
+              ]);
+              const box = panel.add([
+                k.rect(pW, pH, { radius: 12 }),
+                k.pos(0, 0),
+                k.anchor("center"),
+                k.color(20, 20, 24),
+                k.opacity(0.92),
+              ]);
+              panel.add([
+                k.text("Settings", { size: 28 }),
+                k.pos(0, -pH / 2 + 26),
+                k.anchor("center"),
+                k.color(255, 255, 255),
+              ]);
+
+              // Row 1: Help button (center)
+              const rowY1 = -30;
+              const helpBtn = panel.add([
+                k.rect(110, 34, { radius: 8 }),
+                k.pos(0, rowY1),
+                k.anchor("center"),
+                k.color(28, 120, 200),
+                k.area(),
+              ]);
+              helpBtn.add([
+                k.text("Help", { size: 18 }),
+                k.anchor("center"),
+                k.color(255, 255, 255),
+              ]);
+              helpBtn.onClick?.(() => {
+                const msg =
+                  "How to Play\n\n- Tap Left/Right (A/D) to climb holds on the matching side.\n- Time bar drains; climb to refill.\n- Some segments allow either side.\n- Pause button in gameplay; home appears on game over.";
+                alert(msg);
+              });
+
+              // Row 2: Day/Night slider (center)
+              const slideW = Math.round(pW / 6);
+              const slider = panel.add([
+                k.rect(slideW, 14, { radius: 7 }),
+                k.pos(0, rowY1 + 56),
+                k.anchor("center"),
+                k.color(80, 80, 90),
+              ]);
+              const knob = slider.add([
+                k.circle(12),
+                k.pos(-(slideW / 2), 0),
+                k.anchor("center"),
+                k.color(240, 244, 248),
+                k.area(),
+              ]);
+              const sunRadius = 14;
+              slider.add([
+                k.circle(sunRadius),
+                k.pos(-(slideW / 2 + 43), 0),
+                k.anchor("center"),
+                k.color(255, 210, 60),
+              ]);
+              const moonRadius = 14;
+              const moonRoot = slider.add([
+                k.pos(slideW / 2 + 43, 0),
+                k.anchor("center"),
+              ]);
+              moonRoot.add([
+                k.circle(moonRadius),
+                k.anchor("center"),
+                k.color(220, 230, 255),
+              ]);
+              moonRoot.add([
+                k.circle(moonRadius),
+                k.pos(6, 0),
+                k.anchor("center"),
+                k.color(20, 20, 24),
+              ]);
+              const dayTrackCol = k.rgb(120, 180, 255);
+              const nightTrackCol = k.rgb(28, 60, 120);
+              const setTrack = (t) => {
+                slider.color = t === "day" ? dayTrackCol : nightTrackCol;
+              };
+              const applyTheme = (t) => {
+                saveTheme(t);
+                setTrack(t);
+              };
+              const setKnob = (t) => {
+                knob.pos.x = t === "day" ? -(slideW / 2) : slideW / 2;
+              };
+              const cur = window.__theme ?? loadTheme();
+              setKnob(cur);
+              setTrack(cur);
+              knob.onClick?.(() => {
+                const curr = window.__theme ?? loadTheme();
+                const next = curr === "day" ? "night" : "day";
+                setKnob(next);
+                applyTheme(next);
+              });
+
+              // Row 3: Close (center)
+              const closeBtn = panel.add([
+                k.rect(100, 34, { radius: 8 }),
+                k.pos(0, pH / 2 - 28),
+                k.anchor("center"),
+                k.color(120, 120, 120),
+                k.area(),
+              ]);
+              closeBtn.add([
+                k.text("Close", { size: 18 }),
+                k.anchor("center"),
+                k.color(20, 20, 20),
+              ]);
+              closeBtn.onClick?.(() => {
+                try {
+                  panel.destroy();
+                } catch {}
+              });
+            };
+            bg.onClick?.(showPanel);
+            bg.onHover?.(() => {
+              bg.color = hoverCol;
+            });
+            bg.onHoverEnd?.(() => {
+              bg.color = baseCol;
+            });
+          })();
+          function playWithExitAnim() {
+            if (playWithExitAnim._running) return;
+            playWithExitAnim._running = true;
+            isActing = true;
+            const rp = hero.root.pos;
+            const x0 = rp.x,
+              x1 = wallCenterX;
+            const duration = 1.0;
+            k.tween(
+              hero.body.angle ?? 0,
+              8,
+              duration * 0.5,
+              (v) => (hero.body.angle = v),
+              k.easings.easeInOutSine
+            );
+            k.tween(
+              hero.armLeft.angle ?? 190,
+              210,
+              duration * 0.5,
+              (v) => (hero.armLeft.angle = v),
+              k.easings.easeInOutSine
+            );
+            k.tween(
+              hero.armRight.angle ?? 170,
+              150,
+              duration * 0.5,
+              (v) => (hero.armRight.angle = v),
+              k.easings.easeInOutSine
+            );
+            const stepCycles = 2;
+            const half = duration / (stepCycles * 2);
+            const walkOne = (dir, next) => {
+              k.tween(
+                hero.root.pos.x,
+                hero.root.pos.x + dir * 6 * s,
+                half,
+                (v) => (hero.root.pos.x = v),
+                k.easings.easeInOutSine
+              ).then?.(() =>
+                k
+                  .tween(
+                    hero.root.pos.x,
+                    hero.root.pos.x - dir * 6 * s,
+                    half,
+                    (v) => (hero.root.pos.x = v),
+                    k.easings.easeInOutSine
+                  )
+                  .then?.(() => next && next())
+              );
+              k.tween(
+                hero.legLeft.angle ?? 0,
+                10 * dir,
+                half,
+                (v) => (hero.legLeft.angle = v),
+                k.easings.easeOutSine
+              ).then?.(() =>
+                k.tween(
+                  hero.legLeft.angle ?? 0,
+                  0,
+                  half,
+                  (v) => (hero.legLeft.angle = v),
+                  k.easings.easeInSine
+                )
+              );
+              k.tween(
+                hero.legRight.angle ?? 0,
+                -10 * dir,
+                half,
+                (v) => (hero.legRight.angle = v),
+                k.easings.easeOutSine
+              ).then?.(() =>
+                k.tween(
+                  hero.legRight.angle ?? 0,
+                  0,
+                  half,
+                  (v) => (hero.legRight.angle = v),
+                  k.easings.easeInSine
+                )
+              );
+            };
+            k.tween(
+              x0,
+              x1,
+              duration,
+              (v) => (hero.root.pos.x = v),
+              k.easings.easeInOutSine
+            );
+            walkOne(1, () =>
+              walkOne(-1, () => {
+                isActing = false;
+                k.go("game");
+              })
+            );
+          }
+          const start = () => playWithExitAnim();
+          createPlayButton(viewW / 2, viewH / 2, 68, 2100, start);
+          ["space", "enter", "left", "right", "a", "d"].forEach((key) =>
+            k.onKeyPress(key, start)
+          );
+        });
+      }
+
+      // ------------------------------
+      // Scenes: Game
+      // ------------------------------
+      function defineGameScene(k) {
+        k.scene("game", (opts) => {
+          function addDeer() {
+            const treeBaseY = horizonY + 8;
+            const zAmongTrees = -1.46;
+            const margin = 24;
+            const leftX = Math.max(
+              margin,
+              wallCenterX - GAME_CONFIG.wall.width / 2 - 60
+            );
+            const rightX = Math.min(
+              viewW - margin,
+              wallCenterX + GAME_CONFIG.wall.width / 2 + 60
+            );
+            try {
+              spawnSmallDeer(k, {
+                x: leftX,
+                groundY: treeBaseY,
+                z: zAmongTrees,
+                scale: 0.95 * 1.1,
+                facing: 1,
+              });
+              spawnSmallDeer(k, {
+                x: rightX,
+                groundY: treeBaseY,
+                z: zAmongTrees,
+                scale: 0.95 * 1.1,
+                facing: -1,
+              });
+            } catch {}
+          }
+
+          function createCircleButton(label, x, y, radius, z, onClick) {
+            const root = k.add([k.pos(x, y), k.anchor("center"), k.z(z)]);
+            const baseCol = k.rgb(180, 180, 180);
+            const hoverCol = k.rgb(220, 220, 220);
+            const textCol = k.rgb(40, 40, 40);
+            const bg = root.add([
+              k.circle(radius),
+              k.color(baseCol),
+              k.opacity(0.9),
+              k.area(),
+            ]);
+            const size = Math.round(radius * 0.9 * (GAME_CONFIG.uiScale ?? 1));
+            const tx = root.add([
+              k.text(label, { size, width: radius * 1.6, align: "center" }),
+              k.anchor("center"),
+              k.color(textCol),
+            ]);
+            bg.onClick?.(onClick);
+            bg.onHover?.(() => {
+              bg.color = hoverCol;
+            });
+            bg.onHoverEnd?.(() => {
+              bg.color = baseCol;
+            });
+            return { root, bg, tx };
+          }
+
+          function destroyPauseMenu() {
+            resumeBtn?.root?.destroy?.();
+            menuBtn?.root?.destroy?.();
+            replayBtn?.root?.destroy?.();
+            pauseTitle?.destroy?.();
+            endPanel?.destroy?.();
+            endPanel = null;
+            resumeBtn = null;
+            menuBtn = null;
+            replayBtn = null;
+            pauseTitle = null;
+          }
+          
+          function drawSegments() {
+            for (const n of segmentNodes) n.destroy();
+            segmentNodes.length = 0;
+            const nextIdx = getNextSegmentIndex();
+            for (let i = 0; i < numSegmentsOnScreen + 2; i++) {
+              const seg = state.segments[i];
+              if (!seg || !seg.side) continue;
+              const baseY = wallBottom - i * segmentH - segmentH / 2;
+              let yPos = baseY + INDICATOR_Y_RATIO * segmentH + GLOBAL_Y_OFFSET;
+              const dual = seg.eitherAllowed === true;
+              if (dual) {
+                const xl = rock.laneXAt(yPos, "left");
+                const xr = rock.laneXAt(yPos, "right");
+                const cL = obstaclesLayer.add([
+                  k.circle(INDICATOR_RADIUS),
+                  k.pos(xl, yPos),
+                  k.anchor("center"),
+                  k.color(230, 60, 60),
+                  k.opacity(0.95),
+                  k.z(1.2),
+                ]);
+                const cR = obstaclesLayer.add([
+                  k.circle(INDICATOR_RADIUS),
+                  k.pos(xr, yPos),
+                  k.anchor("center"),
+                  k.color(230, 60, 60),
+                  k.opacity(0.95),
+                  k.z(1.2),
+                ]);
+                segmentNodes.push(cL, cR);
+                if (i === nextIdx) currentIndicator = cL;
+              } else {
+                const xPos = rock.laneXAt(yPos, seg.side);
+                const c = obstaclesLayer.add([
+                  k.circle(INDICATOR_RADIUS),
+                  k.pos(xPos, yPos),
+                  k.anchor("center"),
+                  k.color(230, 60, 60),
+                  k.opacity(0.95),
+                  k.z(1.2),
+                ]);
+                segmentNodes.push(c);
+                if (i === nextIdx) currentIndicator = c;
+              }
+            }
+          }
+
+          function getTargetY() {
+            const s = climber.scale ?? 1;
+            const reachTarget = climber.headRadius * 2;
+            const armBase = 18 * s;
+            const holdOffset = armBase + reachTarget * 0.9;
+            return climber.root.pos.y - holdOffset;
+          }
+
+          function getNextSegmentIndex() {
+            const targetY = getTargetY();
+            let bestIdx = 0;
+            let bestDelta = Number.POSITIVE_INFINITY;
+            for (let i = 0; i < state.segments.length; i++) {
+              const seg = state.segments[i];
+              if (!seg || !seg.side) continue;
+              const baseY = wallBottom - i * segmentH - segmentH / 2;
+              const yPos =
+                baseY + INDICATOR_Y_RATIO * segmentH + GLOBAL_Y_OFFSET;
+              const delta = targetY - yPos;
+              if (delta > 0 && delta < bestDelta) {
+                bestDelta = delta;
+                bestIdx = i;
+              }
+            }
+            return bestIdx;
+          }
+
+          function setPhase(phase, reason) {
+            state.phase = phase;
+
+            if (phase === "READY") {
+              overlay.hidden = true;
+              overlayText.hidden = true;
+              startPanel?.destroy?.();
+
+              const padX = 18,
+                padY = 14;
+              const msg = "Click or press Left/Right (A/D) to Start";
+              const textObj = k.add([
+                k.text(msg, {
+                  size: 22,
+                  width: Math.min(520, viewW * 0.8),
+                  align: "center",
+                }),
+                k.pos(viewW / 2, viewH / 2),
+                k.anchor("center"),
+                k.z(3002),
+                k.color(255, 255, 255),
+              ]);
+
+              const w = Math.max(260, textObj.width + padX * 2);
+              const h = Math.max(72, (textObj.height ?? 24) + padY * 2);
+
+              startPanel = k.add([
+                k.pos(viewW / 2, viewH / 2),
+                k.anchor("center"),
+                k.z(3001),
+              ]);
+              startPanel.add([
+                k.rect(w, h, { radius: 12 }),
+                k.pos(0, 0),
+                k.anchor("center"),
+                k.color(20, 20, 24),
+                k.opacity(0.8),
+              ]);
+              startPanel._textRef = textObj;
+
+              showMobileControls();
+
+              endPanel?.destroy?.();
+              endPanel = null;
+              homeBtn?.root?.destroy?.();
+              homeBtn = null;
+            } else if (phase === "PLAY") {
+              overlay.hidden = true;
+              overlayText.hidden = true;
+              try {
+                startPanel?._textRef?.destroy?.();
+              } catch {}
+              startPanel?.destroy?.();
+              startPanel = null;
+
+              destroyPauseMenu();
+              climber.facingWall = true;
+
+              showMobileControls();
+
+              endPanel?.destroy?.();
+              endPanel = null;
+              homeBtn?.root?.destroy?.();
+              homeBtn = null;
+            } else if (phase === "OVER") {
+              overlay.hidden = false;
+              overlayText.hidden = false;
+
+              postScore(state.score);
+
+              const best = Math.max(state.best, state.score);
+              if (best !== state.best) {
+                state.best = best;
+                saveBest(best);
+              }
+
+              const wrong =
+                reason && reason.toLowerCase().includes("wrong")
+                  ? "Wrong beta!\nBut I'm not tryna spray you..."
+                  : reason ?? "Pumped out!";
+
+              overlayText.text = `${wrong}\nScore ${state.score}  •  Best ${state.best}\nPress Space/Enter to Replay`;
+              const uiScale = GAME_CONFIG.uiScale ?? 1;
+              const padX = Math.round(16 * uiScale);
+              const padY = Math.round(12 * uiScale);
+              const maxBoxW = Math.min(viewW * 0.9, 560);
+              overlayText.width = Math.max(240, maxBoxW - padX * 2);
+              overlayText.pos = k.vec2(viewW / 2, viewH / 2 + 40);
+              const textSize = 24;
+              const lines = String(overlayText.text || "").split("\n").length;
+              const approxLineHeight = Math.round(textSize * 1.35);
+              const contentH = lines * approxLineHeight;
+              const boxW = Math.max(260, overlayText.width + padX * 2);
+              const boxH = Math.min(viewH * 0.7, contentH + padY * 2);
+
+              endPanel?.destroy?.();
+              endPanel = k.add([
+                k.pos(viewW / 2 - 245, viewH / 2 - 35),
+                k.anchor("center"),
+                k.z(3001),
+              ]);
+              endPanel.add([
+                k.rect(boxW, boxH, { radius: 12 }),
+                k.color(20, 20, 24),
+                k.opacity(0.55),
+              ]);
+
+              replayBtn?.root?.destroy?.();
+              replayBtn = createCircleButton(
+                "↻",
+                viewW / 2,
+                overlayText.pos.y + 84,
+                36,
+                3100,
+                () => handleStart()
+              );
+
+              homeBtn?.root?.destroy?.();
+              const radius = 22;
+              homeBtn = createCircleButton("⌂", 28, 28, radius, 3100, () =>
+                k.go("menu")
+              );
+
+              showMobileControls();
+            } else if (phase === "PAUSED") {
+              overlay.hidden = false;
+              overlayText.hidden = true;
+
+              showPauseMenu();
+              hideMobileControls();
+
+              endPanel?.destroy?.();
+              endPanel = null;
+              startPanel?.destroy?.();
+              try {
+                startPanel?._textRef?.destroy?.();
+              } catch {}
+              startPanel = null;
+              homeBtn?.root?.destroy?.();
+              homeBtn = null;
+            }
+          }
+
+          function refillTime() {
+            state.timeRemaining = Math.min(
+              GAME_CONFIG.timeBar.maxSeconds,
+              state.timeRemaining + GAME_CONFIG.timeBar.refillOnStepSeconds
+            );
+            hud.setTime(state.timeRemaining);
+          }
+
+          function scrollUp() {
+            if (isScrolling) return;
+            isScrolling = true;
+            const duration = 0.15;
+            const startY = obstaclesLayer.pos.y;
+            const tw = k.tween(
+              startY,
+              startY + segmentH,
+              duration,
+              (v) => (obstaclesLayer.pos.y = v),
+              k.easings.linear
+            );
+            const rockTw = rock.scrollOnce(duration);
+            tw.then?.(() => {
+              obstaclesLayer.pos.y = 0;
+              state.segments.shift();
+              const n = nextObstacle(
+                state.score,
+                state.lastObstacleSide,
+                state.sameSideRun,
+                rngState.rng
+              );
+              state.segments.push({
+                side: n.side,
+                eitherAllowed: n.eitherAllowed,
+              });
+              state.lastObstacleSide = n.newLast;
+              state.sameSideRun = n.newRun;
+              drawSegments();
+              isScrolling = false;
+            });
+          }
+
+          function handleMove(side) {
+            if (settingsOpen) return;
+            if (state.phase === "READY") {
+              state.score = 0;
+              state.timeRemaining = GAME_CONFIG.timeBar.maxSeconds;
+              state.playerSide = "left";
+              state.segments = seedInitialSegments(
+                numSegmentsOnScreen + 5,
+                rngState.rng
+              );
+              state.sameSideRun = 0;
+              state.lastObstacleSide = null;
+              hud.setScore(0, state.best);
+              hud.setTime(state.timeRemaining);
+              drawSegments();
+              setPhase("PLAY");
+              climber.facingWall = false;
+            }
+
+            if (state.phase !== "PLAY") return;
+            if (isScrolling) return;
+            const now = performance.now();
+            if (now < state.inputLockedUntilMs) return;
+            state.inputLockedUntilMs = now + GAME_CONFIG.inputLockMs;
+            const nextSeg = state.segments[getNextSegmentIndex()];
+            const dual = nextSeg && nextSeg.eitherAllowed === true;
+            if (nextSeg && !dual && nextSeg.side !== side) {
+              setPhase("OVER", `Wrong hold — use ${nextSeg.side}!`);
+              return;
+            }
+            state.playerSide = side;
+            climber.facingWall = true;
+            reachToSide(k, climber, side);
+            state.score += 1;
+            hud.setScore(state.score, state.best);
+            refillTime();
+            mountains.scrollVertical(viewW * 0.0015, 0.125);
+            if (navigator.vibrate) navigator.vibrate(15);
+            scrollUp();
+          }
+
+          function handleStart() {
+            if (settingsOpen) return;
+            if (state.phase === "OVER") {
+              state.score = 0;
+              state.timeRemaining = GAME_CONFIG.timeBar.maxSeconds;
+              state.playerSide = "left";
+              state.segments = seedInitialSegments(
+                numSegmentsOnScreen + 5,
+                rngState.rng
+              );
+              state.sameSideRun = 0;
+              state.lastObstacleSide = null;
+              hud.setScore(0, state.best);
+              hud.setTime(state.timeRemaining);
+              drawSegments();
+              setPhase("PLAY");
+              climber.facingWall = false;
+            }
+          }
+
+          function showPauseMenu() {
+            if (resumeBtn) return;
+            pauseTitle = k.add([
+              k.text("Paused", { size: 30 }),
+              k.pos(viewW / 2, viewH / 2 - 120),
+              k.anchor("center"),
+              k.color(255, 255, 255),
+              k.z(2100),
+            ]);
+            resumeBtn = createCircleButton(
+              "▶",
+              viewW / 2,
+              viewH / 2 - 30,
+              24,
+              2100,
+              () => setPhase("PLAY")
+            );
+            menuBtn = createCircleButton(
+              "⌂",
+              viewW / 2,
+              viewH / 2 + 30,
+              22,
+              2100,
+              () => k.go("menu")
+            );
+          }
+          
+          function setupSettings() {
+            const gearRoot = k.add([
+              k.pos(viewW - 85, gearYCalc),
+              k.anchor("center"),
+              k.z(1500),
+            ]);
+            const radius = gearRadiusCalc;
+            const baseCol = k.rgb(56, 60, 66);
+            const hoverCol = k.rgb(76, 82, 90);
+            const bg = gearRoot.add([
+              k.circle(radius + 6),
+              k.color(baseCol),
+              k.opacity(0.85),
+              k.area(),
+            ]);
+            const iconCol = k.rgb(240, 244, 248);
+            const wrench = gearRoot.add([k.pos(0, 0), k.anchor("center")]);
+            wrench.add([
+              k.rect(radius * 1.8, radius * 0.38, {
+                radius: Math.max(2, radius * 0.18),
+              }),
+              k.anchor("center"),
+              k.color(iconCol),
+              k.rotate(-25),
+            ]);
+            const socket = wrench.add([
+              k.circle(radius * 0.55),
+              k.pos(-radius * 0.85, 0),
+              k.anchor("center"),
+              k.color(iconCol),
+            ]);
+            socket.add([
+              k.circle(radius * 0.28),
+              k.anchor("center"),
+              k.color(baseCol),
+            ]);
+            const jaw = wrench.add([
+              k.circle(radius * 0.48),
+              k.pos(radius * 0.85, 0),
+              k.anchor("center"),
+              k.color(iconCol),
+            ]);
+            jaw.add([
+              k.circle(radius * 0.36),
+              k.pos(radius * 0.18, -radius * 0.06),
+              k.anchor("center"),
+              k.color(baseCol),
+            ]);
+            let panel = null;
+            const showPanel = () => {
+              if (panel?.exists?.()) return;
+              settingsOpen = true;
+              const pW = Math.min(380, viewW * 0.9);
+              const pH = 220;
+              panel = k.add([
+                k.pos(viewW / 2, viewH / 2),
+                k.anchor("center"),
+                k.z(2200),
+              ]);
+              panel.add([
+                k.rect(pW, pH, { radius: 14 }),
+                k.pos(0, 0),
+                k.anchor("center"),
+                k.color(20, 20, 24),
+                k.opacity(0.92),
+              ]);
+              panel.add([
+                k.text("Settings", { size: 28 }),
+                k.pos(0, -pH / 2 + 26),
+                k.anchor("center"),
+                k.color(255, 255, 255),
+              ]);
+              const rowY1 = -30;
+              const helpBtn = panel.add([
+                k.rect(110, 34, { radius: 8 }),
+                k.pos(0, rowY1),
+                k.anchor("center"),
+                k.color(28, 120, 200),
+                k.area(),
+              ]);
+              helpBtn.add([
+                k.text("Help", { size: 18 }),
+                k.anchor("center"),
+                k.color(255, 255, 255),
+              ]);
+              helpBtn.onClick?.(() => {
+                const msg =
+                  "How to Play\n\n- Tap Left/Right (A/D) to move to the matching hold.\n- Refill time by climbing.\n- Wrong hold ends run unless dual holds shown.\n- Pause top-right; quit via home on game over.";
+                alert(msg);
+              });
+              const slideW = Math.round(pW / 6);
+              const slider = panel.add([
+                k.rect(slideW, 14, { radius: 7 }),
+                k.pos(0, rowY1 + 56),
+                k.anchor("center"),
+                k.color(80, 80, 90),
+              ]);
+              const knob = slider.add([
+                k.circle(12),
+                k.pos(-(slideW / 2), 0),
+                k.anchor("center"),
+                k.color(240, 244, 248),
+                k.area(),
+              ]);
+              const sunRadius = 14;
+              slider.add([
+                k.circle(sunRadius),
+                k.pos(-(slideW / 2 + 43), 0),
+                k.anchor("center"),
+                k.color(255, 210, 60),
+              ]);
+              const moonRadius = 14;
+              const moonRoot = slider.add([
+                k.pos(slideW / 2 + 43, 0),
+                k.anchor("center"),
+              ]);
+              moonRoot.add([
+                k.circle(moonRadius),
+                k.anchor("center"),
+                k.color(220, 230, 255),
+              ]);
+              moonRoot.add([
+                k.circle(moonRadius),
+                k.pos(6, 0),
+                k.anchor("center"),
+                k.color(20, 20, 24),
+              ]);
+              const dayTrackCol = k.rgb(120, 180, 255);
+              const nightTrackCol = k.rgb(28, 60, 120);
+              const setTrack = (t) => {
+                slider.color = t === "day" ? dayTrackCol : nightTrackCol;
+              };
+              const applyTheme = (t) => {
+                saveTheme(t);
+                setTrack(t);
+              };
+              const setKnob = (t) => {
+                knob.pos.x = t === "day" ? -(slideW / 2) : slideW / 2;
+              };
+              const cur = window.__theme ?? loadTheme();
+              setKnob(cur);
+              setTrack(cur);
+              knob.onClick?.(() => {
+                const curr = window.__theme ?? loadTheme();
+                const next = curr === "day" ? "night" : "day";
+                setKnob(next);
+                applyTheme(next);
+              });
+              const closeBtn = panel.add([
+                k.rect(100, 34, { radius: 8 }),
+                k.pos(0, pH / 2 - 28),
+                k.anchor("center"),
+                k.color(120, 120, 120),
+                k.area(),
+              ]);
+              closeBtn.add([
+                k.text("Close", { size: 18 }),
+                k.anchor("center"),
+                k.color(20, 20, 20),
+              ]);
+              closeBtn.onClick?.(() => {
+                settingsOpen = false;
+                try {
+                  panel.destroy();
+                } catch {}
+              });
+            };
+            bg.onClick?.(showPanel);
+            bg.onHover?.(() => {
+              bg.color = hoverCol;
+            });
+            bg.onHoverEnd?.(() => {
+              bg.color = baseCol;
+            });
+          }
+          
+          const viewW = k.width(),
+            viewH = k.height();
+          const wallCenterX = viewW / 2;
+          const horizonY = viewH * 0.88 - 8;
+          const seed = window.__mountSeed ?? Math.floor(Math.random() * 1e9);
+          const mountains = addMountains(k, { horizon: horizonY, seed });
+          mountains.setAutoDrift(false);
+          spawnBackground(k, k.vec2(viewW, viewH), {
+            treeClip: { centerX: wallCenterX, width: GAME_CONFIG.wall.width },
+            treeScale: 2.0,
+            treeDensityMul: 0.5,
+            horizonLevel: horizonY,
+          });
+          const wallTop = 50;
+          const wallBottom = viewH - 40;
+          const climberScale = 1.5;
+          const climberHeight = estimateClimberHeightPx(climberScale);
+          const segmentH = Math.max(50, Math.floor(viewH / 7));
+          const numSegmentsOnScreen =
+            Math.ceil((wallBottom - wallTop) / segmentH) + 2;
+          const INDICATOR_RADIUS = 10;
+          const INDICATOR_Y_RATIO = -0.25;
+          const rock = spawnRockWall(
+            k,
+            wallCenterX,
+            viewH,
+            GAME_CONFIG.wall.width,
+            segmentH
+          );
+          
+          addDeer();
+
+          const obstaclesLayer = k.add([k.pos(0, 0), k.z(1)]);
+          const rngState = createObstacleState();
+          const initialSegments = seedInitialSegments(
+            numSegmentsOnScreen + 5,
+            rngState.rng
+          );
+          
+          let state = {
+            phase: "READY",
+            score: 0,
+            best: loadBest(),
+            timeRemaining: GAME_CONFIG.timeBar.maxSeconds,
+            playerSide: "left",
+            segments: initialSegments,
+            sameSideRun: 0,
+            lastObstacleSide: null,
+            inputLockedUntilMs: 0,
+          };
+
+          const hud = createHud(k);
+          hud.setTime(state.timeRemaining);
+          hud.setScore(0, state.best);
+
+          // Layout for right-side controls
+          const rightX = viewW - 28;
+          const gearRadiusCalc = 16 * 2; // doubled settings size
+          const gearYCalc = gearRadiusCalc + 12; // top padding
+          const pauseRadiusCalc = 18 * 1.15 * 2; // doubled pause size
+          const spacingCalc = 14; // gap between gear and pause
+          const pauseYCalc =
+            gearYCalc + gearRadiusCalc + spacingCalc + pauseRadiusCalc;
+
+          const pauseRoot = k.add([
+            k.pos(rightX, pauseYCalc),
+            k.anchor("center"),
+            k.z(1500),
+          ]);
+          const baseR = pauseRadiusCalc;
+          const baseCol = k.rgb(56, 60, 66);
+          const hoverCol = k.rgb(76, 82, 90);
+          const ring = pauseRoot.add([
+            k.circle(baseR),
+            k.color(baseCol),
+            k.opacity(0.85),
+            k.area(),
+          ]);
+          const barW = Math.max(3, Math.round(baseR * 0.22));
+          const barH = Math.round(baseR * 0.95);
+          const gap = Math.round(baseR * 0.22);
+          const barL = pauseRoot.add([
+            k.rect(barW, barH, { radius: 2 }),
+            k.pos(-gap, 0),
+            k.anchor("center"),
+            k.color(240, 244, 248),
+          ]);
+          const barR = pauseRoot.add([
+            k.rect(barW, barH, { radius: 2 }),
+            k.pos(gap, 0),
+            k.anchor("center"),
+            k.color(240, 244, 248),
+          ]);
+          ring.onClick?.(() => {
+            if (state.phase === "PLAY") setPhase("PAUSED");
+          });
+          ring.onHover?.(() => {
+            ring.color = hoverCol;
+          });
+          ring.onHoverEnd?.(() => {
+            ring.color = baseCol;
+          });
+          let settingsOpen = false;
+          setupSettings();
+          let resumeBtn = null,
+            menuBtn = null,
+            replayBtn = null;
+          let endPanel = null;
+          let pauseTitle = null;
+          let homeBtn = null;
+          const GLOBAL_Y_OFFSET = -viewH * 0.05;
+          const climberBaseY = wallBottom - segmentH * 1.2 + GLOBAL_Y_OFFSET;
+          const climber = spawnClimber(
+            k,
+            wallCenterX,
+            climberBaseY,
+            climberScale,
+            { showPouch: true }
+          );
+          const segmentNodes = [];
+          let currentIndicator = null;
+          drawSegments();
+          const overlay = k.add([
+            k.rect(viewW, viewH),
+            k.pos(0, 0),
+            k.color(0, 0, 0),
+            k.opacity(0.25),
+            k.z(3000),
+          ]);
+          overlay.hidden = true;
+          const overlayText = k.add([
+            k.text("", { size: 24, width: viewW - 40, align: "center" }),
+            k.pos(viewW / 2, viewH / 2),
+            k.anchor("center"),
+            k.z(3002),
+            k.color(255, 255, 255),
+          ]);
+          overlayText.hidden = true;
+          let startPanel = null;
+          let isScrolling = false;
+          const detachInput = setupInput(k, {
+            onMove: handleMove,
+            onStart: handleStart,
+          });
+
+          k.onClick(() => {
+            if (state.phase === "READY") {
+              handleStart();
+              const mx = k.getCursor?.pos?.x ?? k.mousePos?.().x;
+              if (typeof mx === "number") {
+                const side = mx < viewW / 2 ? "left" : "right";
+                handleMove(side);
+              }
+            }
+          });
+
+          k.onUpdate(() => {
+            if (state.phase !== "PLAY" || settingsOpen) return;
+
+            const dt = Math.min(GAME_CONFIG.maxDtSeconds, k.dt());
+
+            let drain = dt;
+            const rampSlope = GAME_CONFIG.difficulty?.rampSlope ?? 0.009;
+            const rampMax = GAME_CONFIG.difficulty?.rampMax ?? 1.0;
+            const maxDrainMul =
+              GAME_CONFIG.difficulty?.maxDrainMultiplier ?? 2.0;
+
+            const ramp = Math.min(rampMax, rampSlope * state.score);
+            drain *= 1 + ramp;
+            drain = Math.min(drain, dt * maxDrainMul);
+
+            state.timeRemaining -= drain;
+            hud.setTime(state.timeRemaining);
+
+            if (state.timeRemaining <= 0) {
+              setPhase("OVER", "Pumped out!");
+            }
+          });
+
+          k.onSceneLeave(() => {
+            detachInput();
+            hideMobileControls();
+          });
+          
+          setPhase("READY");
+        });
+      }
+
+      // ------------------------------
+      // Bootstrap
+      // ------------------------------
+      const { k } = initKaboom();
+      defineGameScene(k);
+      defineMenuScene(k);
+      k.go("menu");
+    </script>
+  </body>
 </html>
-

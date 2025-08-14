@@ -24,12 +24,14 @@ async def game_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     user_id = cq.from_user.id
+    user_first_name = cq.from_user.first_name
     inline_message_id = cq.inline_message_id  
     message = cq.message
 
     params = {
         "api_base": PUBLIC_URL,   
         "user_id": user_id,
+        "user_name": user_first_name,
         "inline_message_id": inline_message_id or ""
     }
     if message:
@@ -37,6 +39,8 @@ async def game_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         params["message_id"] = message.message_id
         if getattr(message, "message_thread_id", None) is not None:
             params["thread_id"] = message.message_thread_id
+
+    print("[GAME LAUNCH]", params)
 
     game_url = f"{PUBLIC_URL}/climbgame/?{urlencode(params)}"
 

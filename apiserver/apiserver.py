@@ -10,12 +10,22 @@ PUBLIC_URL      = os.getenv("PUBLIC_URL", "http://8.222.151.218")
 
 app_api = Flask(__name__)
 
+
+def safe_int(value, allow_none=False):
+    if value is None and allow_none:
+        return None
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        return None
+
 @app_api.route("/score", methods=["POST"])
 def score_endpoint():
     """
     Body JSON:
     {
       user_id: int,
+      user_name: str,
       chat_id: int|null,
       message_id: int|null,
       inline_message_id: str|null,
@@ -24,12 +34,13 @@ def score_endpoint():
     """
     data = request.get_json(force=True, silent=True) or {}
 
-    print("[SCORE]", data)
-
-    user_id = data.get("user_id")
-    score = data.get("score")
-    chat_id = data.get("chat_id")
-    message_id = data.get("message_id")
+    print("\n[SCORE] request=", data)
+    
+    user_name = data.get("user_name")
+    user_id = safe_int(data.get("user_id"))
+    chat_id = safe_int(data.get("chat_id"), allow_none=True)
+    message_id = safe_int(data.get("message_id"), allow_none=True)
+    score = safe_int(data.get("score"))
     inline_message_id = data.get("inline_message_id")
 
     if not isinstance(user_id, int) or not isinstance(score, int):
@@ -38,7 +49,7 @@ def score_endpoint():
     payload = {
         "user_id": user_id,
         "score": score,
-        "force": True  # allow lowering to overwrite `while testing; set False in prod
+        "force": False  # allow lowering of highscores to overwrite `while testing; set False in prod
     }
     if inline_message_id:
         payload["inline_message_id"] = inline_message_id
@@ -48,9 +59,24 @@ def score_endpoint():
         payload["chat_id"] = chat_id
         payload["message_id"] = message_id
 
-    r = requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/setGameScore", json=payload, timeout=10)
-    ok = r.ok and r.json().get("ok")
-    return jsonify(ok=bool(ok), telegram=r.json())
+    try:
+        r = requests.post(
+            f"https://api.telegram.org/bot{BOT_TOKEN}/setGameScore",
+            json=payload,
+            timeout=10,
+        )
+        print("[SCORE] result status=", r.status_code, "body=", r.text[:1000], flush=True)
+    except requests.RequestException as e:
+        print("[SCORE] request failed:", repr(e), flush=True)
+        return jsonify(ok=False, error=str(e)), 502
+
+    try:
+        body = r.json()
+    except ValueError:
+        body = {"raw": r.text}
+
+    ok = bool(r.ok and isinstance(body, dict) and body.get("ok"))
+    return jsonify(ok=ok, telegram=body), (200 if ok else 502)
 
 def run_api():
     app_api.run(host="0.0.0.0", port=8000)
